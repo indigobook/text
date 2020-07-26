@@ -1,0 +1,18 @@
+{
+  "name": "indigo-book-converter",
+  "version": "1.0.0",
+  "description": "Proof of concept for Word-to-HTML conversion",
+  "main": "ib-convert.js",
+  "scripts": {
+    "convert": "node ./ib-convert.js",
+    "original": "cat sample-saved-as-web-page.html",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Frank Bennett",
+  "license": "MIT",
+  "dependencies": {
+    "htmldom2": "0.0.7",
+    "pretty": "^2.0.0",
+    "xpath": "0.0.27"
+  }
+}
