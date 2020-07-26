@@ -1,6 +1,6 @@
 # indigo-book-converter
 
-THis is a bare-bones proof-of-concept demo of conversion from a document saved
+This is a bare-bones proof-of-concept demo of conversion from a document saved
 from Word as "Web Page" to cleaner HTML, while preserving (or transforming)
 selected features of the original.
 
