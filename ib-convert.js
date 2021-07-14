@@ -52,7 +52,24 @@ const checkNode = (node) => {
 	    var cls = node.getAttribute("class");
 	    if (cls === "Inkling") {
 		ret.setAttribute("class", cls);
-	    }
+	    } else if (cls === "MsoListParagraphCxSpFirst") {
+
+		// Oh! This is hard. We need to set ol, but
+		// then set the first li as the pushNode.
+		// How to do that? Return an array? No, that's
+		// going to fuzz up the logic.
+
+		// Catch this first node in the main function,
+		// set it, and set it as parent there. Then things
+		// unfold as noremal UNTIL we reach
+		// then end. Then what? Tough. Later.
+		
+		ret = newdoc.createElement("ol");
+		var li = newdoc.createElement("li");
+		ret.appendChild(li);
+	    } else if (cls === "MsoListParagraphCxSpFirst") {
+		
+	    } 
 	} else if (m[1] === "span") {
 	    var style = node.getAttribute("style");
 	    if (style && style.match("small-caps")) {
@@ -78,6 +95,8 @@ const checkEachNode = (parent, node, depth) => {
 	    parent.appendChild(newnode);
 	}
     } else if (type === "node") {
+	var style = node.getAttribute("style");
+	if (style && style.match(/mso-list:Ignore/)) return;
 	if (node.childNodes.length > 0) {
 	    var pushNode = checkNode(node);
 	    var newparent;
