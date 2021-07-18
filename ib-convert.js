@@ -59,6 +59,62 @@ function Walker (doc, newdoc) {
 
     // Load jurisdiction maps, to expand extracted jurisdiction field codes
     this.jurisdictionMap = this.getJurisdictionMap("us");
+
+    var signalMap = {
+        none: "",
+        eg: "e.g.",
+        accord: "accord",
+        see: "see",
+        seealso: "see also",
+        seeeg: "see, e.g.",
+        cf: "cf.",
+        contra: "contra",
+        butsee: "but see",
+        seegenerally: "see generally",
+        Eg: "E.g.",
+        Accord: "Accord",
+        See: "See",
+        Seealso: "See also",
+        Seeeg: "See, e.g.",
+        Cf: "Cf.",
+        Contra: "Contra",
+        Butsee: "But see",
+        Butseeeg: "But see, e.g.",
+        Seegenerally: "See generally",
+        butcf: "but cf.",
+        compare: "compare",
+        Butcf: "But cf.",
+        Compare: "Compare",
+        with: "with",
+        and: "and",
+        affirmed: "aff'd",
+        affirming: "aff'g",
+        certdenied: "cert. denied",
+        other: "on other grounds",
+        revsub: "sub nom.",
+        affirmed: "aff'd",
+        affirming: "aff'g",
+        certdenied: "cert. denied",
+        reversed: "rev'd",
+        other: "on other grounds",
+        subnom: "sub nom.",
+        description: "Description of content,",
+        semicolon: "; "
+    }
+    delete signalMap["none"];
+
+    this.signalMap = signalMap;
+
+    this.reverseSignalMap = function() {
+        var ret = {};
+        for (var key in signalMap) {
+            var val = signalMap[key].replace(/[¥s,]*$/, "");
+            ret[val] = key;
+        }
+        return ret;
+    }();
+
+    this.reverseSignalRex = new RegExp(`(${Object.keys(this.reverseSignalMap).join("|")})`)
 }
 
 Walker.prototype.run = function() {
@@ -176,7 +232,28 @@ Walker.prototype.buildDataInfo = function(fieldObj) {
 
     console.log(JSON.stringify(fieldObj, null, 2));
 
-    var ret = arr.join("-");
+    for (var citationItem of fieldObj.citationItems) {
+        var info = [];
+        var m = citationItem.prefix.match(this.reverseSignalRex)
+        if (m) {
+            var prefixSignalCode = this.reverseSignalMap[m[1]];
+            info.push(prefixSignalCode);
+        } else {
+            info.push("none");
+        }
+        var itemKey = citationItem.uri[0].split("/").pop();
+        info.push(itemKey);
+        var positionCode = "0";
+        info.push(positionCode);
+        var suppressAuthor = citationItem["suppress-author"] ? "1" : "0";
+        info.push(suppressAuthor);
+        if (citationItem.locator) {
+            info.push(citationItem.locator);
+        }
+        arr.push(info.join("-"));
+    }
+    
+    var ret = arr.join("++");
     return ret;
 }
 
@@ -230,17 +307,18 @@ Walker.prototype.processInputTree = function(node, topOfTree) {
                 var fieldJSON = fieldBody.firstChild.textContent.slice(32).replace(/&quot;/g, '"').replace(/(\r\n|\n|\r)/gm, " ").trim();
                 var fieldObj = JSON.parse(fieldJSON);
                 
-                this.buildDataInfo(fieldObj);
-                
                 for (var itemObj of fieldObj.citationItems) {
                     if (itemObj.itemData.jurisdiction) {
                         itemObj.itemData.jurisdiction = this.jurisdictionMap[itemObj.itemData.jurisdiction];
                     }
                 }
                 var wrapper = this.newdoc.createElement("span");
-                // Yo.
-                // Here let's set the class marker
+                var myid = this.buildDataInfo(fieldObj);
+
+                // Set data info and save item data to files
                 // <span id="c003" class="cite" data-info="Butcf-L4TVSRGE-0-0">
+                console.log(myid);
+                
                 wrapper.setAttribute("class", "cite");
                 var pushNode = this.fixNode(wrapper);
                 this.getTarget().appendChild(pushNode);
@@ -260,47 +338,6 @@ var positionMap = {
 */
 
 /*
-var signalMap = {
-    none: "",
-    eg: "e.g.",
-    accord: "accord",
-    see: "see",
-    seealso: "see also",
-    seeeg: "see, e.g.",
-    cf: "cf.",
-    contra: "contra",
-    butsee: "but see",
-    seegenerally: "see generally",
-    Eg: "E.g.",
-    Accord: "Accord",
-    See: "See",
-    Seealso: "See also",
-    Seeeg: "See, e.g.",
-    Cf: "Cf.",
-    Contra: "Contra",
-    Butsee: "But see",
-    Butseeeg: "But see, e.g.",
-    Seegenerally: "See generally",
-    butcf: "but cf.",
-    compare: "compare",
-    Butcf: "But cf.",
-    Compare: "Compare",
-    with: "with",
-    and: "and",
-    affirmed: "aff'd",
-    affirming: "aff'g",
-    certdenied: "cert. denied",
-    other: "on other grounds",
-    revsub: "sub nom.",
-    affirmed: "aff'd",
-    affirming: "aff'g",
-    certdenied: "cert. denied",
-    reversed: "rev'd",
-    other: "on other grounds",
-    subnom: "sub nom.",
-    description: "Description of content,",
-    semicolon: "; "
-}
 */
 
 
