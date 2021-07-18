@@ -42,6 +42,7 @@ var newdoc = new dom().parseFromString(template, "text/html");
  * Conversion factory
  */
 function Walker (doc, newdoc) {
+    this.citePos = 1;
     this.body = xpath.select("//body", doc)[0];
     this.newdoc = newdoc;
     this.newbody = xpath.select("//body", newdoc)[0];
@@ -157,8 +158,9 @@ Walker.prototype.fixNode = function(node) {
             if (style && style.match("small-caps")) {
         	    ret = this.newdoc.createElement("span");
 		        ret.setAttribute("class", "small-caps");
-            } else if (cls && cls.match("juris")) {
+            } else if (cls && cls.match("cite")) {
                 ret = this.newdoc.createElement(tn);
+                ret.setAttribute("class", "cite");
 	        } else {
                 ret = false;
 	        }
@@ -166,6 +168,15 @@ Walker.prototype.fixNode = function(node) {
 	        ret = this.newdoc.createElement(tn);
         }
     }
+    return ret;
+}
+
+Walker.prototype.buildDataInfo = function(fieldObj) {
+    var arr = [];
+
+    console.log(JSON.stringify(fieldObj, null, 2));
+
+    var ret = arr.join("-");
     return ret;
 }
 
@@ -207,18 +218,7 @@ Walker.prototype.processInputTree = function(node, topOfTree) {
                 }
             }
 	    }
-    }
-}
-
-const walker = new Walker(doc, newdoc);
-walker.run();
-
-/*
-
-  NEXT STEP IS TO RESTORE AND DEBUG THIS
-
- else if (type === "comment") {
-        return;
+    } else if (type === "comment") {
         var content = node.nodeValue;
         if (content.slice(0, 19) === "[if supportFields]>" && content.slice(-9) === "<![endif]") {
             // console.log(`Raw: ${content}`);
@@ -229,18 +229,80 @@ walker.run();
             if (begin.length) {
                 var fieldJSON = fieldBody.firstChild.textContent.slice(32).replace(/&quot;/g, '"').replace(/(\r\n|\n|\r)/gm, " ").trim();
                 var fieldObj = JSON.parse(fieldJSON);
+                
+                this.buildDataInfo(fieldObj);
+                
                 for (var itemObj of fieldObj.citationItems) {
                     if (itemObj.itemData.jurisdiction) {
                         itemObj.itemData.jurisdiction = this.jurisdictionMap[itemObj.itemData.jurisdiction];
                     }
                 }
                 var wrapper = this.newdoc.createElement("span");
-                wrapper.setAttribute("class", "juris");
-                var pushNode = checkNode(wrapper);
+                // Yo.
+                // Here let's set the class marker
+                // <span id="c003" class="cite" data-info="Butcf-L4TVSRGE-0-0">
+                wrapper.setAttribute("class", "cite");
+                var pushNode = this.fixNode(wrapper);
                 this.getTarget().appendChild(pushNode);
                 this.addTarget(pushNode);
             }
         }
     }
+}
+
+/*
+var positionMap = {
+    "0": "First reference",
+    "1": "Subsequent reference",
+    "2": "Id. reference",
+    "3": "Id. reference with locator"
+};
 */
 
+/*
+var signalMap = {
+    none: "",
+    eg: "e.g.",
+    accord: "accord",
+    see: "see",
+    seealso: "see also",
+    seeeg: "see, e.g.",
+    cf: "cf.",
+    contra: "contra",
+    butsee: "but see",
+    seegenerally: "see generally",
+    Eg: "E.g.",
+    Accord: "Accord",
+    See: "See",
+    Seealso: "See also",
+    Seeeg: "See, e.g.",
+    Cf: "Cf.",
+    Contra: "Contra",
+    Butsee: "But see",
+    Butseeeg: "But see, e.g.",
+    Seegenerally: "See generally",
+    butcf: "but cf.",
+    compare: "compare",
+    Butcf: "But cf.",
+    Compare: "Compare",
+    with: "with",
+    and: "and",
+    affirmed: "aff'd",
+    affirming: "aff'g",
+    certdenied: "cert. denied",
+    other: "on other grounds",
+    revsub: "sub nom.",
+    affirmed: "aff'd",
+    affirming: "aff'g",
+    certdenied: "cert. denied",
+    reversed: "rev'd",
+    other: "on other grounds",
+    subnom: "sub nom.",
+    description: "Description of content,",
+    semicolon: "; "
+}
+*/
+
+
+const walker = new Walker(doc, newdoc);
+walker.run();
