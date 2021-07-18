@@ -18,21 +18,12 @@ const jurisMapPath = (fn) => {
 }
 
 /*
-  Only these node types are of interest
-*/
-const processTypes = {
-    1: "node",
-    3: "text",
-    8: "comment"
-}
-
-/*
   Initialize original DOM as source
 */
 // Saved as Web Page from Word
 var html_txt = fs.readFileSync("sample.html").toString();
 var doc = new dom().parseFromString(html_txt, "text/html");
-var body = xpath.select("//body", doc)[0];
+
 
 /*
   Initialize new DOM as output target.
@@ -46,14 +37,35 @@ var template = `
 </html>
 `.trim();
 var newdoc = new dom().parseFromString(template, "text/html");
-var newbody = xpath.select("//body", newdoc)[0];
 
 /*
-  Nodes are appended to the node at the end of the "stack" array.
-*/
-var stack = [newbody];
+ * Conversion factory
+ */
+function Walker (doc, newdoc) {
+    this.body = xpath.select("//body", doc)[0];
+    this.newdoc = newdoc;
+    this.newbody = xpath.select("//body", newdoc)[0];
+    
+    // Only these node types are of interest
+    this.processTypes = {
+        1: "node",
+        3: "text",
+        8: "comment"
+    }
+    
+    // Converted nodes are appended to the node at the end of the "stack" array.
+    this.stack = [this.newbody];
 
-const padding = (num) => {
+    // Load jurisdiction maps, to expand extracted jurisdiction field codes
+    this.jurisdictionMap = this.getJurisdictionMap("us");
+}
+
+Walker.prototype.run = function() {
+    this.processInputTree(this.body, true);
+    console.log(pretty((new serializer()).serializeToString(this.newdoc)))
+}
+
+Walker.prototype.padding = function(num) {
     num = num.toString();
     while (num.length < 3) {
         num = `0${num}`;
@@ -61,10 +73,22 @@ const padding = (num) => {
     return num;
 }
 
-const loadJurisdictionMaps = (code) => {
+Walker.prototype.getTarget = function() {
+    return this.stack.slice(-1)[0];
+}
+
+Walker.prototype.addTarget = function(node) {
+    this.stack.push(node);
+}
+
+Walker.prototype.dropTarget = function() {
+    this.stack.pop();
+}
+
+Walker.prototype.getJurisdictionMap = function(code) {
     var accByPos = {};
     var accByKey = {};
-    // Fetch map file
+    
     var _jurisdictionKeySplit = code.split(":");
     var topJurisdiction = _jurisdictionKeySplit[0];
     console.log(`Loading jurisdiction codes for: ${topJurisdiction}`);
@@ -72,11 +96,10 @@ const loadJurisdictionMaps = (code) => {
     var jurisdictionFile = `juris-${topJurisdiction}-map.json`;
     var jurisdictionJSON = fs.readFileSync(jurisMapPath(jurisdictionFile)).toString();
     var jurisdictionRawData = JSON.parse(jurisdictionJSON);
-    // console.log(JSON.stringify(jurisdictionRawData, null, 2));
 
     var jurisdictionList = jurisdictionRawData.jurisdictions.default;
     accByPos[0] = {
-        offset: padding(jurisdictionList[0][0].length),
+        offset: this.padding(jurisdictionList[0][0].length),
         code: jurisdictionList[0][0],
         name: `${jurisdictionList[0][1]}|${jurisdictionList[0][0].toUpperCase()}`
     }
@@ -84,12 +107,11 @@ const loadJurisdictionMaps = (code) => {
     for (var i=1,ilen=jurisdictionList.length; i<ilen; i++) {
         var jurisdictionInfo = jurisdictionList[i];
         var parentPos = jurisdictionInfo[2];
-        //console.log(JSON.stringify(jurisdictionInfo, null, 2));
         var parentInfo = accByPos[parentPos];
         var code = `${parentInfo.code}:${jurisdictionInfo[0]}`;
         var name = `${parentInfo.name}|${jurisdictionInfo[1]}`;
         accByPos[i] = {
-            offset: padding(code.length),
+            offset: this.padding(code.length),
             code: code,
             name: name
         }
@@ -98,22 +120,16 @@ const loadJurisdictionMaps = (code) => {
         var info = accByPos[pos];
         accByKey[info.code] = `${info.offset}${info.code}${info.name}`;
     }
-    // console.log(JSON.stringify(accByKey, null, 2));
-    // process.exit();
     return accByKey;
 }
-var jurisdictionMap = loadJurisdictionMaps("us");
 
-/*
-  Set the output node, or return null to ignore
-*/
-const fixNode = (node) => {
+Walker.prototype.fixNode = function(node) {
     var ret = null;
     var tn = node.tagName;
     var m = tn.match(/(h[0-9]|p|span|table|tr|td|i|li|ul|ol|b)/);
     if (m) {
 	    if (m[1] === "p") {
-	        ret = newdoc.createElement("p");
+	        ret = this.newdoc.createElement("p");
 	        var cls = node.getAttribute("class");
 	        if (cls === "Inkling") {
 		        ret.setAttribute("class", cls);
@@ -129,8 +145,8 @@ const fixNode = (node) => {
 		        // unfold as noremal UNTIL we reach
 		        // then end. Then what? Tough. Later.
 		        
-		        ret = newdoc.createElement("ol");
-		        var li = newdoc.createElement("li");
+		        ret = this.newdoc.createElement("ol");
+		        var li = this.newdoc.createElement("li");
 		        ret.appendChild(li);
 	        } else if (cls === "MsoListParagraphCxSpFirst") {
 		        
@@ -139,31 +155,27 @@ const fixNode = (node) => {
 	        var cls = node.getAttribute("class");
 	        var style = node.getAttribute("style");
             if (style && style.match("small-caps")) {
-        	    ret = newdoc.createElement("span");
+        	    ret = this.newdoc.createElement("span");
 		        ret.setAttribute("class", "small-caps");
             } else if (cls && cls.match("juris")) {
-                ret = newdoc.createElement(tn);
+                ret = this.newdoc.createElement(tn);
 	        } else {
                 ret = false;
 	        }
         } else {
-	        ret = newdoc.createElement(tn);
+	        ret = this.newdoc.createElement(tn);
         }
     }
     return ret;
 }
 
-/*
-  Recursive scraper function
-*/
-const checkEachNode = (node, topOfTree) => {
-    var target = stack.slice(-1)[0];
-    var type = processTypes[node.nodeType];
+Walker.prototype.processInputTree = function(node, topOfTree) {
+    var type = this.processTypes[node.nodeType];
     if (type === "text") {
 	    var content = node.nodeValue.replace(/&nbsp;/g, " ").replace(/¥s+/g, " ");
 	    if (content.trim()) {
-	        var newnode = newdoc.createTextNode(content);
-	        target.appendChild(newnode);
+	        var newnode = this.newdoc.createTextNode(content);
+	        this.getTarget().appendChild(newnode);
 	    }
     } else if (type === "node") {
 	    var style = node.getAttribute("style");
@@ -180,23 +192,26 @@ const checkEachNode = (node, topOfTree) => {
             // evaluate null are dropped entirely, and tags that
             // evaluate false are not pushed to target, but we descend
             // into their children, if any.
-	        var pushNode = fixNode(node);
+	        var pushNode = this.fixNode(node);
             if (pushNode !== null) {
                 if (pushNode) {
-		            target.appendChild(pushNode);
-                    stack.push(pushNode);
+		            this.getTarget().appendChild(pushNode);
+                    this.addTarget(pushNode);
                 }
 	            for(var i=0; i<node.childNodes.length; i++) {
                     var child = node.childNodes[i];
-		            checkEachNode(child);
+		            this.processInputTree(child);
 	            }
                 if (pushNode) {
-                    stack.pop();
+                    this.dropTarget();
                 }
             }
 	    }
     }
 }
+
+const walker = new Walker(doc, newdoc);
+walker.run();
 
 /*
 
@@ -216,21 +231,16 @@ const checkEachNode = (node, topOfTree) => {
                 var fieldObj = JSON.parse(fieldJSON);
                 for (var itemObj of fieldObj.citationItems) {
                     if (itemObj.itemData.jurisdiction) {
-                        itemObj.itemData.jurisdiction = jurisdictionMap[itemObj.itemData.jurisdiction];
+                        itemObj.itemData.jurisdiction = this.jurisdictionMap[itemObj.itemData.jurisdiction];
                     }
                 }
-                var wrapper = newdoc.createElement("span");
+                var wrapper = this.newdoc.createElement("span");
                 wrapper.setAttribute("class", "juris");
                 var pushNode = checkNode(wrapper);
-                target.appendChild(pushNode);
-                stack.push(pushNode);
+                this.getTarget().appendChild(pushNode);
+                this.addTarget(pushNode);
             }
         }
     }
 */
 
-checkEachNode(body, true);
-
-console.log("");
-console.log("HOORAY AGAIN, HERE IS SOME HTML");
-console.log(pretty((new serializer()).serializeToString(newdoc)))
