@@ -102,11 +102,12 @@ const loadJurisdictionMaps = (code) => {
     // process.exit();
     return accByKey;
 }
+var jurisdictionMap = loadJurisdictionMaps("us");
 
 /*
   Set the output node, or return null to ignore
 */
-const checkNode = (node) => {
+const fixNode = (node) => {
     var ret = null;
     var tn = node.tagName;
     var m = tn.match(/(h[0-9]|p|span|table|tr|td|i|li|ul|ol|b)/);
@@ -124,7 +125,7 @@ const checkNode = (node) => {
 		        // going to fuzz up the logic.
 
 		        // Catch this first node in the main function,
-		        // set it, and set it as parent there. Then things
+		        // set it, and set it as target there. Then things
 		        // unfold as noremal UNTIL we reach
 		        // then end. Then what? Tough. Later.
 		        
@@ -135,16 +136,19 @@ const checkNode = (node) => {
 		        
 	        } 
 	    } else if (m[1] === "span") {
+	        var cls = node.getAttribute("class");
 	        var style = node.getAttribute("style");
-	        if (style) {
-                if (style.match("small-caps")) {
-        	        ret = newdoc.createElement("span");
-		            ret.setAttribute("class", "small-caps");
-	            }
-            }
-	    } else {
+            if (style && style.match("small-caps")) {
+        	    ret = newdoc.createElement("span");
+		        ret.setAttribute("class", "small-caps");
+            } else if (cls && cls.match("juris")) {
+                ret = newdoc.createElement(tn);
+	        } else {
+                ret = false;
+	        }
+        } else {
 	        ret = newdoc.createElement(tn);
-	    }
+        }
     }
     return ret;
 }
@@ -152,36 +156,54 @@ const checkNode = (node) => {
 /*
   Recursive scraper function
 */
-const checkEachNode = (jurisdictionMap, parent, node, depth) => {
+const checkEachNode = (node, topOfTree) => {
+    var target = stack.slice(-1)[0];
     var type = processTypes[node.nodeType];
     if (type === "text") {
 	    var content = node.nodeValue.replace(/&nbsp;/g, " ").replace(/¥s+/g, " ");
 	    if (content.trim()) {
 	        var newnode = newdoc.createTextNode(content);
-	        parent.appendChild(newnode);
+	        target.appendChild(newnode);
 	    }
     } else if (type === "node") {
 	    var style = node.getAttribute("style");
 	    if (style && style.match(/mso-list:Ignore/)) return;
+        // No singletons. What about BR and HR?
 	    if (node.childNodes.length > 0) {
-	        var pushNode = checkNode(node);
-	        var newparent;
-	        if (pushNode) {
-		        if (depth > 0) {
-		            parent.appendChild(pushNode);
-		            newparent = pushNode;
-		        } else {
-		            newparent = parent;
-		        }
-	        } else {
-		        newparent = parent;
-	        }
-	        for(var i=0; i<node.childNodes.length; i++) {
-		        //console.log(`PUSHED parent ${newnode.tagName} depth is ${depth}, stack length is: ${stack.length}`);
-		        checkEachNode(jurisdictionMap, newparent, node.childNodes[i], depth+1);
-	        }
+
+            // There is a dirty trick here. Word HTML output contains
+            // a lot of tags that are entirely of no interest to us,
+            // as well as span tags with text content that we need,
+            // but which themselves generally just amount to clutter.
+            // fixNode() returns null for the former, but for the
+            // latter it returns false. In the block below, tags that
+            // evaluate null are dropped entirely, and tags that
+            // evaluate false are not pushed to target, but we descend
+            // into their children, if any.
+	        var pushNode = fixNode(node);
+            if (pushNode !== null) {
+                if (pushNode) {
+		            target.appendChild(pushNode);
+                    stack.push(pushNode);
+                }
+	            for(var i=0; i<node.childNodes.length; i++) {
+                    var child = node.childNodes[i];
+		            checkEachNode(child);
+	            }
+                if (pushNode) {
+                    stack.pop();
+                }
+            }
 	    }
-    } else if (type === "comment") {
+    }
+}
+
+/*
+
+  NEXT STEP IS TO RESTORE AND DEBUG THIS
+
+ else if (type === "comment") {
+        return;
         var content = node.nodeValue;
         if (content.slice(0, 19) === "[if supportFields]>" && content.slice(-9) === "<![endif]") {
             // console.log(`Raw: ${content}`);
@@ -190,22 +212,24 @@ const checkEachNode = (jurisdictionMap, parent, node, depth) => {
             var fieldBody = xpath.select("//body", fieldDoc)[0];
             var begin = xpath.select('//span[contains(@style, "mso-element:field-begin")]', fieldBody);
             if (begin.length) {
-                var fieldJSON = fieldBody.firstChild.textContent.slice(32).replace(/&quot;/g, '"').replace(/(\r\n|\n|\r)/gm, " ").replace(/formattedCitation.*plainCitation/g, "plainCitation").trim();
+                var fieldJSON = fieldBody.firstChild.textContent.slice(32).replace(/&quot;/g, '"').replace(/(\r\n|\n|\r)/gm, " ").trim();
                 var fieldObj = JSON.parse(fieldJSON);
                 for (var itemObj of fieldObj.citationItems) {
                     if (itemObj.itemData.jurisdiction) {
                         itemObj.itemData.jurisdiction = jurisdictionMap[itemObj.itemData.jurisdiction];
                     }
                 }
-                console.log(`HOORAY, HERE IS THE JSON DATA FOR ONE CITATION:`);
-                console.log(`${JSON.stringify(fieldObj, null, 2)}`);
+                var wrapper = newdoc.createElement("span");
+                wrapper.setAttribute("class", "juris");
+                var pushNode = checkNode(wrapper);
+                target.appendChild(pushNode);
+                stack.push(pushNode);
             }
         }
     }
-}
+*/
 
-var jurisdictionMap = loadJurisdictionMaps("us");
-checkEachNode(jurisdictionMap, newbody, body,0);
+checkEachNode(body, true);
 
 console.log("");
 console.log("HOORAY AGAIN, HERE IS SOME HTML");
