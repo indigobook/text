@@ -141,7 +141,7 @@ Walker.prototype.run = function() {
     this.processInputTree(this.body, true);
     var output = pretty((new serializer()).serializeToString(this.newdoc));
     fs.writeFileSync(buildPath("sample-output.html"), output);
-    // console.log(pretty((new serializer()).serializeToString(this.newdoc)))
+    console.log(pretty((new serializer()).serializeToString(this.newdoc)))
 }
 
 Walker.prototype.padding = function(num) {
@@ -202,16 +202,66 @@ Walker.prototype.getJurisdictionMap = function(code) {
     return accByKey;
 }
 
-Walker.prototype.fixNode = function(node) {
+Walker.prototype.appendOrdinaryNode = function(inputNode, outputNode) {
+    if (outputNode !== null) {
+        if (outputNode) {
+		    this.getTarget().appendChild(outputNode);
+            this.addTarget(outputNode);
+        }
+	    for(var i=0; i<inputNode.childNodes.length; i++) {
+            var child = inputNode.childNodes[i];
+            // console.log(`   child: ${child.textContent}`);
+		    this.processInputTree(child);
+	    }
+        if (outputNode) {
+            this.dropTarget();
+        }
+    }
+}
+
+Walker.prototype.appendOpeningListNode = function(inputNode, outputNode) {
+    this.getTarget().appendChild(outputNode);
+    this.addTarget(outputNode);
+	var li = this.newdoc.createElement("li");
+	outputNode.appendChild(li);
+    this.addTarget(li);
+	for(var i=0; i<inputNode.childNodes.length; i++) {
+        var child = inputNode.childNodes[i];
+		this.processInputTree(child);
+	}
+    this.dropTarget();
+}
+
+Walker.prototype.appendClosingListNode = function(inputNode, outputNode) {
+    var li = this.newdoc.createElement("li");
+	outputNode.appendChild(li);
+    this.addTarget(li);
+	for(var i=0; i<inputNode.childNodes.length; i++) {
+        var child = inputNode.childNodes[i];
+		this.processInputTree(child);
+	}
+    this.dropTarget();
+    this.dropTarget();
+}
+
+Walker.prototype.fixNodeAndAppend = function(node) {
     var ret = null;
     var tn = node.tagName;
     var m = tn.match(/(h[0-9]|p|span|table|tr|td|i|li|ul|ol|b)/);
     if (m) {
+        
+        // OH PIFFLE.
+        // I need peace and quiet to sort this mess out. Functions
+        // should have a single purpose, side effects should be
+        // avoided, and names should clearly identify what each
+        // function is for.
+        
 	    if (m[1] === "p") {
 	        ret = this.newdoc.createElement("p");
 	        var cls = node.getAttribute("class");
 	        if (cls === "Inkling") {
 		        ret.setAttribute("class", cls);
+                this.appendOrdinaryNode(node, ret)
 	        } else if (cls === "MsoListParagraphCxSpFirst") {
 
 		        // Oh! This is hard. We need to set ol, but
@@ -223,17 +273,24 @@ Walker.prototype.fixNode = function(node) {
 		        // set it, and set it as target there. Then things
 		        // unfold as noremal UNTIL we reach
 		        // then end. Then what? Tough. Later.
+		        console.log("first");
 		        
 		        ret = this.newdoc.createElement("ol");
-		        var li = this.newdoc.createElement("li");
-		        ret.appendChild(li);
-	        } else if (cls === "MsoListParagraphCxSpFirst") {
-		        
-	        } 
+                this.appendOpeningListNode(node, ret);
+	        } else if (cls === "MsoListParagraphCxSpMiddle") {
+		        console.log("middle");
+	        } else if (cls === "MsoListParagraphCxSpLast") {
+		        console.log("last");
+
+                this.appendClosingListNode(node, ret);
+            } else {
+                this.appendOrdinaryNode(node, ret);
+            }
 	    } else if (m[1] === "span") {
 	        var cls = node.getAttribute("class");
             var dataInfo = node.getAttribute("data-info");
 	        var style = node.getAttribute("style");
+            // console.log(`${cls} / ${dataInfo} / ${style}`)
             if (style && style.match("small-caps")) {
         	    ret = this.newdoc.createElement("span");
 		        ret.setAttribute("class", "small-caps");
@@ -244,11 +301,13 @@ Walker.prototype.fixNode = function(node) {
 	        } else {
                 ret = false;
 	        }
+            // console.log(`Input node: ${node.nodeName}, Output node: ${ret}`);
+            this.appendOrdinaryNode(node, ret)
         } else {
 	        ret = this.newdoc.createElement(tn);
+            this.appendOrdinaryNode(node, ret)
         }
     }
-    return ret;
 }
 
 Walker.prototype.fixFieldObj = function(fieldObj) {
@@ -300,7 +359,7 @@ Walker.prototype.writeItemDataFileOrFiles = function(fieldObj) {
         var itemData = itemObj.itemData;
         var pth = itemDataPath(`${itemData.id}.json`);
         if (!fs.existsSync(pth)) {
-            fs.writeFileSync(pth, JSON.stringify(itemData));
+            fs.writeFileSync(pth, JSON.stringify(itemData, null, 2));
             // console.log(`Wrote ${itemData.id}.json`);
         }
 
@@ -330,20 +389,7 @@ Walker.prototype.processInputTree = function(node) {
             // evaluate null are dropped entirely, and tags that
             // evaluate false are not pushed to target, but we descend
             // into their children, if any.
-	        var pushNode = this.fixNode(node);
-            if (pushNode !== null) {
-                if (pushNode) {
-		            this.getTarget().appendChild(pushNode);
-                    this.addTarget(pushNode);
-                }
-	            for(var i=0; i<node.childNodes.length; i++) {
-                    var child = node.childNodes[i];
-		            this.processInputTree(child);
-	            }
-                if (pushNode) {
-                    this.dropTarget();
-                }
-            }
+	        this.fixNodeAndAppend(node);
 	    }
     } else if (type === "comment") {
         var content = node.nodeValue;
@@ -357,26 +403,26 @@ Walker.prototype.processInputTree = function(node) {
                 var fieldJSON = fieldBody.firstChild.textContent.slice(32).replace(/&quot;/g, '"').replace(/(\r\n|\n|\r)/gm, " ").trim();
                 var fieldObj = JSON.parse(fieldJSON);
 
-                var wrapper = this.newdoc.createElement("span");
+                // Write data file(s) for this citation if required
                 var fieldID = this.buildDataInfo(fieldObj);
                 this.writeItemDataFileOrFiles(fieldObj);
 
-                // Set data info and save item data to files
-                // <span id="c003" class="cite" data-info="Butcf-L4TVSRGE-0-0">
-                // console.log(myid);
-                
+                // Add wrapper to the citation object in the output DOM
+                var wrapper = this.newdoc.createElement("span");
                 wrapper.setAttribute("class", "cite");
                 wrapper.setAttribute("data-info", fieldID);
-                console.log(fieldID);
-                var pushNode = this.fixNode(wrapper);
-                this.getTarget().appendChild(pushNode);
-                this.addTarget(pushNode);
+                this.fixNodeAndAppend(wrapper);
             }
         }
     }
 }
 
 /*
+Unfortunately, the Jurism data embedded in the document does not
+contain positional information. There's no easy way around that,
+since the position parameter is dynamic, and cannot be set
+manually through the document UI.
+
 var positionMap = {
     "0": "First reference",
     "1": "Subsequent reference",
