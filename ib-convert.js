@@ -17,6 +17,26 @@ const jurisMapPath = (fn) => {
     }
 }
 
+const buildPath = (fn) => {
+    var stub = path.join(".", "build");
+    fs.mkdirSync(stub, {recursive: true});
+    if (fn) {
+        return path.join(stub, fn);
+    } else {
+        return stub;
+    }
+}
+
+const itemDataPath = (fn) => {
+    var stub = path.join(buildPath(), "static", "itemdata");
+    fs.mkdirSync(stub, {recursive: true});
+    if (fn) {
+        return path.join(stub, fn);
+    } else {
+        return stub;
+    }
+}
+
 /*
   Initialize original DOM as source
 */
@@ -119,7 +139,9 @@ function Walker (doc, newdoc) {
 
 Walker.prototype.run = function() {
     this.processInputTree(this.body, true);
-    console.log(pretty((new serializer()).serializeToString(this.newdoc)))
+    var output = pretty((new serializer()).serializeToString(this.newdoc));
+    fs.writeFileSync(buildPath("sample-output.html"), output);
+    // console.log(pretty((new serializer()).serializeToString(this.newdoc)))
 }
 
 Walker.prototype.padding = function(num) {
@@ -148,7 +170,7 @@ Walker.prototype.getJurisdictionMap = function(code) {
     
     var _jurisdictionKeySplit = code.split(":");
     var topJurisdiction = _jurisdictionKeySplit[0];
-    console.log(`Loading jurisdiction codes for: ${topJurisdiction}`);
+    // console.log(`Loading jurisdiction codes for: ${topJurisdiction}`);
     
     var jurisdictionFile = `juris-${topJurisdiction}-map.json`;
     var jurisdictionJSON = fs.readFileSync(jurisMapPath(jurisdictionFile)).toString();
@@ -210,13 +232,15 @@ Walker.prototype.fixNode = function(node) {
 	        } 
 	    } else if (m[1] === "span") {
 	        var cls = node.getAttribute("class");
+            var dataInfo = node.getAttribute("data-info");
 	        var style = node.getAttribute("style");
             if (style && style.match("small-caps")) {
         	    ret = this.newdoc.createElement("span");
 		        ret.setAttribute("class", "small-caps");
-            } else if (cls && cls.match("cite")) {
+            } else if (cls && cls.match("cite") && dataInfo) {
                 ret = this.newdoc.createElement(tn);
                 ret.setAttribute("class", "cite");
+                ret.setAttribute("data-info", dataInfo);
 	        } else {
                 ret = false;
 	        }
@@ -227,12 +251,27 @@ Walker.prototype.fixNode = function(node) {
     return ret;
 }
 
+Walker.prototype.fixFieldObj = function(fieldObj) {
+    // Fix jurisdiction field values
+    for (var itemObj of fieldObj.citationItems) {
+        if (itemObj.itemData.jurisdiction) {
+            itemObj.itemData.jurisdiction = this.jurisdictionMap[itemObj.itemData.jurisdiction];
+        }
+        var itemKey = itemObj.uri[0].split("/").pop();
+        itemObj.itemData.id = itemKey;
+    }
+    return fieldObj;
+}
+
 Walker.prototype.buildDataInfo = function(fieldObj) {
     var arr = [];
 
-    console.log(JSON.stringify(fieldObj, null, 2));
+    fieldObj = this.fixFieldObj(fieldObj);
+    
+    // console.log(JSON.stringify(fieldObj, null, 2));
 
     for (var citationItem of fieldObj.citationItems) {
+ 
         var info = [];
         var m = citationItem.prefix.match(this.reverseSignalRex)
         if (m) {
@@ -241,8 +280,7 @@ Walker.prototype.buildDataInfo = function(fieldObj) {
         } else {
             info.push("none");
         }
-        var itemKey = citationItem.uri[0].split("/").pop();
-        info.push(itemKey);
+        info.push(citationItem.itemData.id);
         var positionCode = "0";
         info.push(positionCode);
         var suppressAuthor = citationItem["suppress-author"] ? "1" : "0";
@@ -257,7 +295,19 @@ Walker.prototype.buildDataInfo = function(fieldObj) {
     return ret;
 }
 
-Walker.prototype.processInputTree = function(node, topOfTree) {
+Walker.prototype.writeItemDataFileOrFiles = function(fieldObj) {
+    for (var itemObj of fieldObj.citationItems) {
+        var itemData = itemObj.itemData;
+        var pth = itemDataPath(`${itemData.id}.json`);
+        if (!fs.existsSync(pth)) {
+            fs.writeFileSync(pth, JSON.stringify(itemData));
+            // console.log(`Wrote ${itemData.id}.json`);
+        }
+
+    }
+}
+
+Walker.prototype.processInputTree = function(node) {
     var type = this.processTypes[node.nodeType];
     if (type === "text") {
 	    var content = node.nodeValue.replace(/&nbsp;/g, " ").replace(/¥s+/g, " ");
@@ -306,20 +356,18 @@ Walker.prototype.processInputTree = function(node, topOfTree) {
             if (begin.length) {
                 var fieldJSON = fieldBody.firstChild.textContent.slice(32).replace(/&quot;/g, '"').replace(/(\r\n|\n|\r)/gm, " ").trim();
                 var fieldObj = JSON.parse(fieldJSON);
-                
-                for (var itemObj of fieldObj.citationItems) {
-                    if (itemObj.itemData.jurisdiction) {
-                        itemObj.itemData.jurisdiction = this.jurisdictionMap[itemObj.itemData.jurisdiction];
-                    }
-                }
+
                 var wrapper = this.newdoc.createElement("span");
-                var myid = this.buildDataInfo(fieldObj);
+                var fieldID = this.buildDataInfo(fieldObj);
+                this.writeItemDataFileOrFiles(fieldObj);
 
                 // Set data info and save item data to files
                 // <span id="c003" class="cite" data-info="Butcf-L4TVSRGE-0-0">
-                console.log(myid);
+                // console.log(myid);
                 
                 wrapper.setAttribute("class", "cite");
+                wrapper.setAttribute("data-info", fieldID);
+                console.log(fieldID);
                 var pushNode = this.fixNode(wrapper);
                 this.getTarget().appendChild(pushNode);
                 this.addTarget(pushNode);
@@ -343,3 +391,4 @@ var positionMap = {
 
 const walker = new Walker(doc, newdoc);
 walker.run();
+console.log("Generated files are at build/sample-output.html and under build/static/itemdata");
