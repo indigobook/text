@@ -219,12 +219,25 @@ Walker.prototype.appendOrdinaryNode = function(inputNode, outputNode) {
     }
 }
 
+Walker.prototype.getListLevel = function(node) {
+    var ret = 0;
+    var style = node.getAttribute("style");
+    var m = style.match(/level([0-9])/);
+    if (m) {
+        ret = parseInt(m[1], 10);
+    }
+    return ret;
+}
+
 Walker.prototype.appendOpeningListNode = function(inputNode, outputNode) {
+	outputNode = this.newdoc.createElement("ol");
     this.getTarget().appendChild(outputNode);
     this.addTarget(outputNode);
 	var li = this.newdoc.createElement("li");
 	outputNode.appendChild(li);
     this.addTarget(li);
+    this.listLevel = this.getListLevel(inputNode);
+    console.log(this.listLevel);
 	for(var i=0; i<inputNode.childNodes.length; i++) {
         var child = inputNode.childNodes[i];
 		this.processInputTree(child);
@@ -232,10 +245,38 @@ Walker.prototype.appendOpeningListNode = function(inputNode, outputNode) {
     this.dropTarget();
 }
 
+Walker.prototype.appendMiddleListNode = function(inputNode, outputNode) {
+    var newListLevel = this.getListLevel(inputNode);
+    if (newListLevel > this.listLevel) {
+        // Does the list level deepen?
+        console.log("  deepens");
+    } else if (newListLevel < this.listLevel) {
+        // Does the list level rise?
+        console.log("  rises");
+    } else {
+        // Level still the same?
+        console.log("  same");
+    }
+    console.log(`  ${newListLevel} / ${this.listLevel}`);
+    this.listLevel = newListLevel;
+}
+
 Walker.prototype.appendClosingListNode = function(inputNode, outputNode) {
-    var li = this.newdoc.createElement("li");
-	outputNode.appendChild(li);
-    this.addTarget(li);
+    var newListLevel = this.getListLevel(inputNode);
+    if (newListLevel > this.listLevel) {
+        // Does the list level deepen?
+        console.log("  deepens");
+    } else if (newListLevel < this.listLevel) {
+        // Does the list level rise?
+        console.log("  rises");
+    } else {
+        // Level still the same?
+        console.log("  same");
+    }
+    this.listLevel = newListLevel;
+    var outputNode = this.newdoc.createElement("li");
+    this.getTarget().appendChild(outputNode);
+    this.addTarget(outputNode);
 	for(var i=0; i<inputNode.childNodes.length; i++) {
         var child = inputNode.childNodes[i];
 		this.processInputTree(child);
@@ -275,14 +316,14 @@ Walker.prototype.fixNodeAndAppend = function(node) {
 		        // then end. Then what? Tough. Later.
 		        console.log("first");
 		        
-		        ret = this.newdoc.createElement("ol");
-                this.appendOpeningListNode(node, ret);
+                this.appendOpeningListNode(node, null);
 	        } else if (cls === "MsoListParagraphCxSpMiddle") {
 		        console.log("middle");
+                this.appendMiddleListNode(node, null);
 	        } else if (cls === "MsoListParagraphCxSpLast") {
 		        console.log("last");
 
-                this.appendClosingListNode(node, ret);
+                this.appendClosingListNode(node, null);
             } else {
                 this.appendOrdinaryNode(node, ret);
             }
