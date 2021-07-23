@@ -242,12 +242,17 @@ Walker.prototype.appendOpeningListNode = function(inputNode, outputNode) {
         var child = inputNode.childNodes[i];
 		this.processInputTree(child);
 	}
-    this.dropTarget();
 }
 
 Walker.prototype.appendMiddleListNode = function(inputNode, outputNode) {
     var newListLevel = this.getListLevel(inputNode);
-    outputNode = this.adjustListNestingLevel(newListLevel);
+    var levelChange = this.adjustListNestingLevel(newListLevel);
+    console.log(`   ${levelChange}`);
+    if (levelChange === "rise") {
+        this.dropTarget();
+        var li = this.newdoc.createElement("li");
+        this.addTarget(li);
+    }
 	for(var i=0; i<inputNode.childNodes.length; i++) {
         var child = inputNode.childNodes[i];
 		this.processInputTree(child);
@@ -257,7 +262,13 @@ Walker.prototype.appendMiddleListNode = function(inputNode, outputNode) {
 
 Walker.prototype.appendClosingListNode = function(inputNode, outputNode) {
     var newListLevel = this.getListLevel(inputNode);
-    outputNode = this.adjustListNestingLevel(newListLevel);
+    var levelChange = this.adjustListNestingLevel(newListLevel);
+    console.log(`   ${levelChange}`);
+    if (levelChange === "rise") {
+        this.dropTarget();
+        var li = this.newdoc.createElement("li");
+        this.addTarget(li);
+    }
 	for(var i=0; i<inputNode.childNodes.length; i++) {
         var child = inputNode.childNodes[i];
 		this.processInputTree(child);
@@ -272,12 +283,17 @@ Walker.prototype.appendClosingListNode = function(inputNode, outputNode) {
  * which should not be closed until after the level is
  * raised again. That should be simple to fix, but I'm a bit
  * bleary at the moment and it's time to get started on dinner.
+ *
+ * Okay, did some work on this.
+ * It's still deeply messed up and the code is extremely hard
+ * to follow. adjustNestingLevel() is probably doing some things
+ * that should be done in the calling function for clarity.
  */
 
 Walker.prototype.adjustListNestingLevel = function(newListLevel) {
+    var levelChange;
     if (newListLevel > this.listLevel) {
         // Does the list level deepen?
-        console.log("  deepens");
         while (newListLevel > this.listLevel) {
 	        var outputNode = this.newdoc.createElement("ol");
             this.getTarget().appendChild(outputNode);
@@ -287,24 +303,26 @@ Walker.prototype.adjustListNestingLevel = function(newListLevel) {
             this.addTarget(li);
             this.listLevel++;
         }
+        levelChange = "deepen";
     } else if (newListLevel < this.listLevel) {
         // Does the list level rise?
-        console.log("  rises");
         while (newListLevel < this.listLevel) {
             this.dropTarget();
             this.listLevel--;
         }
-        var outputNode = this.getTarget();
-	    var li = this.newdoc.createElement("li");
-	    outputNode.appendChild(li);
-        this.addTarget(li);
+        //var outputNode = this.getTarget();
+	    //var li = this.newdoc.createElement("li");
+	    //outputNode.appendChild(li);
+        //this.addTarget(li);
+        levelChange = "rise";
     } else {
         var outputNode = this.getTarget();
 	    var li = this.newdoc.createElement("li");
 	    outputNode.appendChild(li);
         this.addTarget(li);
+        levelChange = "same";
     }
-    return this.getTarget();
+    return levelChange;
 }
 
 Walker.prototype.fixNodeAndAppend = function(node) {
