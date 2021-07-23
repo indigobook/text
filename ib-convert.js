@@ -247,42 +247,64 @@ Walker.prototype.appendOpeningListNode = function(inputNode, outputNode) {
 
 Walker.prototype.appendMiddleListNode = function(inputNode, outputNode) {
     var newListLevel = this.getListLevel(inputNode);
-    if (newListLevel > this.listLevel) {
-        // Does the list level deepen?
-        console.log("  deepens");
-    } else if (newListLevel < this.listLevel) {
-        // Does the list level rise?
-        console.log("  rises");
-    } else {
-        // Level still the same?
-        console.log("  same");
-    }
-    console.log(`  ${newListLevel} / ${this.listLevel}`);
-    this.listLevel = newListLevel;
+    outputNode = this.adjustListNestingLevel(newListLevel);
+	for(var i=0; i<inputNode.childNodes.length; i++) {
+        var child = inputNode.childNodes[i];
+		this.processInputTree(child);
+	}
+    this.dropTarget();
 }
 
 Walker.prototype.appendClosingListNode = function(inputNode, outputNode) {
     var newListLevel = this.getListLevel(inputNode);
-    if (newListLevel > this.listLevel) {
-        // Does the list level deepen?
-        console.log("  deepens");
-    } else if (newListLevel < this.listLevel) {
-        // Does the list level rise?
-        console.log("  rises");
-    } else {
-        // Level still the same?
-        console.log("  same");
-    }
-    this.listLevel = newListLevel;
-    var outputNode = this.newdoc.createElement("li");
-    this.getTarget().appendChild(outputNode);
-    this.addTarget(outputNode);
+    outputNode = this.adjustListNestingLevel(newListLevel);
 	for(var i=0; i<inputNode.childNodes.length; i++) {
         var child = inputNode.childNodes[i];
 		this.processInputTree(child);
 	}
     this.dropTarget();
     this.dropTarget();
+}
+
+/*
+ * Okay, so we're almost there.
+ * As nested OL tag should be INSIDE the preceding LI tag,
+ * which should not be closed until after the level is
+ * raised again. That should be simple to fix, but I'm a bit
+ * bleary at the moment and it's time to get started on dinner.
+ */
+
+Walker.prototype.adjustListNestingLevel = function(newListLevel) {
+    if (newListLevel > this.listLevel) {
+        // Does the list level deepen?
+        console.log("  deepens");
+        while (newListLevel > this.listLevel) {
+	        var outputNode = this.newdoc.createElement("ol");
+            this.getTarget().appendChild(outputNode);
+            this.addTarget(outputNode);
+	        var li = this.newdoc.createElement("li");
+	        outputNode.appendChild(li);
+            this.addTarget(li);
+            this.listLevel++;
+        }
+    } else if (newListLevel < this.listLevel) {
+        // Does the list level rise?
+        console.log("  rises");
+        while (newListLevel < this.listLevel) {
+            this.dropTarget();
+            this.listLevel--;
+        }
+        var outputNode = this.getTarget();
+	    var li = this.newdoc.createElement("li");
+	    outputNode.appendChild(li);
+        this.addTarget(li);
+    } else {
+        var outputNode = this.getTarget();
+	    var li = this.newdoc.createElement("li");
+	    outputNode.appendChild(li);
+        this.addTarget(li);
+    }
+    return this.getTarget();
 }
 
 Walker.prototype.fixNodeAndAppend = function(node) {
