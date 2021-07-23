@@ -66,6 +66,7 @@ function Walker (doc, newdoc) {
     this.body = xpath.select("//body", doc)[0];
     this.newdoc = newdoc;
     this.newbody = xpath.select("//body", newdoc)[0];
+    this.listNodeCount = 0;
     
     // Only these node types are of interest
     this.processTypes = {
@@ -157,6 +158,8 @@ Walker.prototype.getTarget = function() {
 }
 
 Walker.prototype.addTarget = function(node) {
+    var target = this.getTarget();
+    target.appendChild(node);
     this.stack.push(node);
 }
 
@@ -205,7 +208,6 @@ Walker.prototype.getJurisdictionMap = function(code) {
 Walker.prototype.appendOrdinaryNode = function(inputNode, outputNode) {
     if (outputNode !== null) {
         if (outputNode) {
-		    this.getTarget().appendChild(outputNode);
             this.addTarget(outputNode);
         }
 	    for(var i=0; i<inputNode.childNodes.length; i++) {
@@ -229,15 +231,29 @@ Walker.prototype.getListLevel = function(node) {
     return ret;
 }
 
+/*
+ * Each list node processor is in five parts:
+ * 1. Close any existing nested OL|UL/LI
+ + 2. Close any existing LI
+ * 3. Set the current LI
+ * 4. Set any nested OL|UL/LI
+ * 5. Process any text of the current input node
+ */
+
 Walker.prototype.appendOpeningListNode = function(inputNode, outputNode) {
-	outputNode = this.newdoc.createElement("ol");
-    this.getTarget().appendChild(outputNode);
-    this.addTarget(outputNode);
+    this.listNodeCount++;
+    console.log(`Input P node number: ${this.listNodeCount}`);
+    // 1. noop
+    // 2. noop
+    // 3. Open list environment and set initial LI
+	var ol = this.newdoc.createElement("ol");
+    this.addTarget(ol);
 	var li = this.newdoc.createElement("li");
-	outputNode.appendChild(li);
     this.addTarget(li);
+    // listLevel should always be 1 in this function. I think.
     this.listLevel = this.getListLevel(inputNode);
-    console.log(this.listLevel);
+    // 4. noop
+    // 5. Text children
 	for(var i=0; i<inputNode.childNodes.length; i++) {
         var child = inputNode.childNodes[i];
 		this.processInputTree(child);
@@ -245,84 +261,71 @@ Walker.prototype.appendOpeningListNode = function(inputNode, outputNode) {
 }
 
 Walker.prototype.appendMiddleListNode = function(inputNode, outputNode) {
+    this.listNodeCount++;
+    console.log(`Input P node number: ${this.listNodeCount}`);
+    // 1. Close any nested list levels that we're done with
     var newListLevel = this.getListLevel(inputNode);
-    var levelChange = this.adjustListNestingLevel(newListLevel);
-    console.log(`   ${levelChange}`);
-    if (levelChange === "rise") {
+    this.raiseNestingLevel(newListLevel);
+    var levelWillDeepen = this.deepenNestingLevelCheck(newListLevel);
+    if (!levelWillDeepen) {
+        // 2. Close existing LI
         this.dropTarget();
+        // 3. Set the current LI
         var li = this.newdoc.createElement("li");
         this.addTarget(li);
     }
+    // 4. Open list levels if appropriate
+    this.deepenNestingLevel(newListLevel);
+    // 5. Process text for this node
 	for(var i=0; i<inputNode.childNodes.length; i++) {
         var child = inputNode.childNodes[i];
 		this.processInputTree(child);
 	}
-    this.dropTarget();
 }
 
 Walker.prototype.appendClosingListNode = function(inputNode, outputNode) {
-    var newListLevel = this.getListLevel(inputNode);
-    var levelChange = this.adjustListNestingLevel(newListLevel);
-    console.log(`   ${levelChange}`);
-    if (levelChange === "rise") {
-        this.dropTarget();
-        var li = this.newdoc.createElement("li");
-        this.addTarget(li);
-    }
-	for(var i=0; i<inputNode.childNodes.length; i++) {
-        var child = inputNode.childNodes[i];
-		this.processInputTree(child);
-	}
+    // Same as for mid-list nodes
+    this.appendMiddleListNode(inputNode, outputNode);
+    // Drop LI
     this.dropTarget();
+    // Drop OL|UL
     this.dropTarget();
 }
 
-/*
- * Okay, so we're almost there.
- * As nested OL tag should be INSIDE the preceding LI tag,
- * which should not be closed until after the level is
- * raised again. That should be simple to fix, but I'm a bit
- * bleary at the moment and it's time to get started on dinner.
- *
- * Okay, did some work on this.
- * It's still deeply messed up and the code is extremely hard
- * to follow. adjustNestingLevel() is probably doing some things
- * that should be done in the calling function for clarity.
- */
-
-Walker.prototype.adjustListNestingLevel = function(newListLevel) {
-    var levelChange;
-    if (newListLevel > this.listLevel) {
-        // Does the list level deepen?
-        while (newListLevel > this.listLevel) {
-	        var outputNode = this.newdoc.createElement("ol");
-            this.getTarget().appendChild(outputNode);
-            this.addTarget(outputNode);
-	        var li = this.newdoc.createElement("li");
-	        outputNode.appendChild(li);
-            this.addTarget(li);
-            this.listLevel++;
-        }
-        levelChange = "deepen";
-    } else if (newListLevel < this.listLevel) {
-        // Does the list level rise?
+Walker.prototype.raiseNestingLevel = function(newListLevel) {
+    var ret = false;
+    if (newListLevel < this.listLevel) {
+        ret = true;
         while (newListLevel < this.listLevel) {
+            // Drop LI
+            this.dropTarget();
+            // Drop OL|UL
             this.dropTarget();
             this.listLevel--;
         }
-        //var outputNode = this.getTarget();
-	    //var li = this.newdoc.createElement("li");
-	    //outputNode.appendChild(li);
-        //this.addTarget(li);
-        levelChange = "rise";
-    } else {
-        var outputNode = this.getTarget();
-	    var li = this.newdoc.createElement("li");
-	    outputNode.appendChild(li);
-        this.addTarget(li);
-        levelChange = "same";
     }
-    return levelChange;
+    return ret;
+}
+
+Walker.prototype.deepenNestingLevelCheck = function(newListLevel) {
+    return this.deepenNestingLevel(newListLevel, true);
+}
+
+Walker.prototype.deepenNestingLevel = function(newListLevel, justLooking) {
+    var ret = false;
+    if (newListLevel > this.listLevel) {
+        ret = true;
+        if (!justLooking) {
+            while (newListLevel > this.listLevel) {
+	            var ol = this.newdoc.createElement("ol");
+                this.addTarget(ol);
+	            var li = this.newdoc.createElement("li");
+                this.addTarget(li);
+                this.listLevel++;
+            }
+        }
+    }
+    return ret;
 }
 
 Walker.prototype.fixNodeAndAppend = function(node) {
@@ -330,13 +333,6 @@ Walker.prototype.fixNodeAndAppend = function(node) {
     var tn = node.tagName;
     var m = tn.match(/(h[0-9]|p|span|table|tr|td|i|li|ul|ol|b)/);
     if (m) {
-        
-        // OH PIFFLE.
-        // I need peace and quiet to sort this mess out. Functions
-        // should have a single purpose, side effects should be
-        // avoided, and names should clearly identify what each
-        // function is for.
-        
 	    if (m[1] === "p") {
 	        ret = this.newdoc.createElement("p");
 	        var cls = node.getAttribute("class");
@@ -344,25 +340,13 @@ Walker.prototype.fixNodeAndAppend = function(node) {
 		        ret.setAttribute("class", cls);
                 this.appendOrdinaryNode(node, ret)
 	        } else if (cls === "MsoListParagraphCxSpFirst") {
-
-		        // Oh! This is hard. We need to set ol, but
-		        // then set the first li as the pushNode.
-		        // How to do that? Return an array? No, that's
-		        // going to fuzz up the logic.
-
-		        // Catch this first node in the main function,
-		        // set it, and set it as target there. Then things
-		        // unfold as noremal UNTIL we reach
-		        // then end. Then what? Tough. Later.
-		        console.log("first");
-		        
+                // List formatting in Word HTML output is awful
                 this.appendOpeningListNode(node, null);
 	        } else if (cls === "MsoListParagraphCxSpMiddle") {
-		        console.log("middle");
+                // List formatting in Word HTML output is awful
                 this.appendMiddleListNode(node, null);
 	        } else if (cls === "MsoListParagraphCxSpLast") {
-		        console.log("last");
-
+                // List formatting in Word HTML output is awful
                 this.appendClosingListNode(node, null);
             } else {
                 this.appendOrdinaryNode(node, ret);
