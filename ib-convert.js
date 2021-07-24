@@ -66,7 +66,7 @@ function Walker (doc, newdoc) {
     this.body = xpath.select("//body", doc)[0];
     this.newdoc = newdoc;
     this.newbody = xpath.select("//body", newdoc)[0];
-    this.listNodeCount = 0;
+    this.listType = "ul";
     
     // Only these node types are of interest
     this.processTypes = {
@@ -135,7 +135,11 @@ function Walker (doc, newdoc) {
         return ret;
     }();
 
-    this.reverseSignalRex = new RegExp(`(${Object.keys(this.reverseSignalMap).join("|")})`)
+    this.reverseSignalRex = new RegExp(`(${Object.keys(this.reverseSignalMap).join("|")})`);
+}
+
+Walker.prototype.getNodeType = function(node) {
+    return this.processTypes[node.nodeType];
 }
 
 Walker.prototype.run = function() {
@@ -206,6 +210,15 @@ Walker.prototype.getJurisdictionMap = function(code) {
 }
 
 Walker.prototype.appendOrdinaryNode = function(inputNode, outputNode) {
+    // There is a dirty trick here. Word HTML output contains
+    // a lot of tags that are entirely of no interest to us,
+    // as well as span tags with text content that we need,
+    // but which themselves generally just amount to clutter.
+    // fixNode() returns null for the former, but for the
+    // latter it returns false. In the block below, tags that
+    // evaluate null are dropped entirely, and tags that
+    // evaluate false are not pushed to target, but we descend
+    // into their children, if any.
     if (outputNode !== null) {
         if (outputNode) {
             this.addTarget(outputNode);
@@ -231,6 +244,23 @@ Walker.prototype.getListLevel = function(node) {
     return ret;
 }
 
+Walker.prototype.setListType = function(node) {
+    // This is just, like, wow. Word HTML output contains nothing in
+    // the attributes to indicate whether a list is a numbered list
+    // or a set of bullet points. We need to extract the literal
+    // values and apply a heuristic.
+    var ret = "ul";
+    var bulletOrNumber = xpath.select('.//span[@style="mso-list:Ignore"]', node)[0];
+    console.log(bulletOrNumber.firstChild.nodeValue)
+    if (bulletOrNumber && bulletOrNumber.firstChild && this.getNodeType(bulletOrNumber.firstChild) === "text") {
+        var chr = bulletOrNumber.firstChild.nodeValue;
+        if (chr.match(/^[a-zA-Z0-9]/)) {
+            ret = "ol";
+        }
+    }
+    this.listType = ret;
+}
+
 /*
  * Each list node processor is in five parts:
  * 1. Close any existing nested OL|UL/LI
@@ -240,14 +270,13 @@ Walker.prototype.getListLevel = function(node) {
  * 5. Process any text of the current input node
  */
 
-Walker.prototype.appendOpeningListNode = function(inputNode, outputNode) {
-    this.listNodeCount++;
-    console.log(`Input P node number: ${this.listNodeCount}`);
+Walker.prototype.appendOpeningListNode = function(inputNode) {
+    this.setListType(inputNode);
     // 1. noop
     // 2. noop
     // 3. Open list environment and set initial LI
-	var ol = this.newdoc.createElement("ol");
-    this.addTarget(ol);
+	var olul = this.newdoc.createElement(this.listType);
+    this.addTarget(olul);
 	var li = this.newdoc.createElement("li");
     this.addTarget(li);
     // listLevel should always be 1 in this function. I think.
@@ -260,9 +289,8 @@ Walker.prototype.appendOpeningListNode = function(inputNode, outputNode) {
 	}
 }
 
-Walker.prototype.appendMiddleListNode = function(inputNode, outputNode) {
-    this.listNodeCount++;
-    console.log(`Input P node number: ${this.listNodeCount}`);
+Walker.prototype.appendMiddleListNode = function(inputNode) {
+    this.setListType(inputNode);
     // 1. Close any nested list levels that we're done with
     var newListLevel = this.getListLevel(inputNode);
     this.raiseNestingLevel(newListLevel);
@@ -283,9 +311,9 @@ Walker.prototype.appendMiddleListNode = function(inputNode, outputNode) {
 	}
 }
 
-Walker.prototype.appendClosingListNode = function(inputNode, outputNode) {
+Walker.prototype.appendClosingListNode = function(inputNode) {
     // Same as for mid-list nodes
-    this.appendMiddleListNode(inputNode, outputNode);
+    this.appendMiddleListNode(inputNode);
     // Drop LI
     this.dropTarget();
     // Drop OL|UL
@@ -317,8 +345,8 @@ Walker.prototype.deepenNestingLevel = function(newListLevel, justLooking) {
         ret = true;
         if (!justLooking) {
             while (newListLevel > this.listLevel) {
-	            var ol = this.newdoc.createElement("ol");
-                this.addTarget(ol);
+	            var olul = this.newdoc.createElement(this.listType);
+                this.addTarget(olul);
 	            var li = this.newdoc.createElement("li");
                 this.addTarget(li);
                 this.listLevel++;
@@ -341,15 +369,17 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 this.appendOrdinaryNode(node, ret)
 	        } else if (cls === "MsoListParagraphCxSpFirst") {
                 // List formatting in Word HTML output is awful
-                this.appendOpeningListNode(node, null);
+                this.appendOpeningListNode(node);
 	        } else if (cls === "MsoListParagraphCxSpMiddle") {
                 // List formatting in Word HTML output is awful
-                this.appendMiddleListNode(node, null);
+                this.appendMiddleListNode(node);
 	        } else if (cls === "MsoListParagraphCxSpLast") {
                 // List formatting in Word HTML output is awful
-                this.appendClosingListNode(node, null);
+                this.appendClosingListNode(node);
             } else {
-                this.appendOrdinaryNode(node, ret);
+                if (node.childNodes.length > 0) {
+                    this.appendOrdinaryNode(node, ret);
+                }
             }
 	    } else if (m[1] === "span") {
 	        var cls = node.getAttribute("class");
@@ -432,7 +462,7 @@ Walker.prototype.writeItemDataFileOrFiles = function(fieldObj) {
 }
 
 Walker.prototype.processInputTree = function(node) {
-    var type = this.processTypes[node.nodeType];
+    var type = this.getNodeType(node);
     if (type === "text") {
 	    var content = node.nodeValue.replace(/&nbsp;/g, " ").replace(/¥s+/g, " ");
 	    if (content.trim()) {
@@ -444,16 +474,6 @@ Walker.prototype.processInputTree = function(node) {
 	    if (style && style.match(/mso-list:Ignore/)) return;
         // No singletons. What about BR and HR?
 	    if (node.childNodes.length > 0) {
-
-            // There is a dirty trick here. Word HTML output contains
-            // a lot of tags that are entirely of no interest to us,
-            // as well as span tags with text content that we need,
-            // but which themselves generally just amount to clutter.
-            // fixNode() returns null for the former, but for the
-            // latter it returns false. In the block below, tags that
-            // evaluate null are dropped entirely, and tags that
-            // evaluate false are not pushed to target, but we descend
-            // into their children, if any.
 	        this.fixNodeAndAppend(node);
 	    }
     } else if (type === "comment") {
