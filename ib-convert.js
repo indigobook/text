@@ -221,6 +221,9 @@ Walker.prototype.appendOrdinaryNode = function(inputNode, outputNode) {
     // into their children, if any.
     if (outputNode !== null) {
         if (outputNode) {
+            if (this.checkForBlockIndent(inputNode)) {
+                outputNode = this.newdoc.createElement("blockquote");
+            }
             this.addTarget(outputNode);
         }
 	    for(var i=0; i<inputNode.childNodes.length; i++) {
@@ -232,6 +235,19 @@ Walker.prototype.appendOrdinaryNode = function(inputNode, outputNode) {
             this.dropTarget();
         }
     }
+}
+
+Walker.prototype.checkForBlockIndent = function(node) {
+    var ret = false;
+    if (node.tagName === "p") {
+        var style = node.getAttribute("style");
+        if (style) {
+            if (style.match(/margin-left/)) {
+                ret = true;
+            }
+        }
+    }
+    return ret;
 }
 
 Walker.prototype.getListLevel = function(node) {
