@@ -49,8 +49,9 @@ var doc = new dom().parseFromString(html_txt, "text/html");
   Initialize new DOM as output target.
 */
 var template = `
-<html>
+<html lang="en">
   <head>
+    <meta charset="utf-8" />
     <title>Sample Output: Indigo Book</title>
     <style>
       .inkling-box {
@@ -61,9 +62,23 @@ var template = `
       .inkling-title {
           font-variant: small-caps;
       }
+      .cite:hover {
+          background: #eeeeee;
+      }
+      table thead tr {
+        font-weight: bold;
+        background: #eeeeee;
+      }
+      table tr td {
+        vertical-align: top;
+      }
+      table, table th, table td, table tr {
+          border: 1px solid #ccc;
+          border-collapse: collapse;
+      }
     </style>
   </head>
-  <body/>
+  <body></body>
 </html>
 `.trim();
 var newdoc = new dom().parseFromString(template, "text/html");
@@ -73,6 +88,7 @@ var newdoc = new dom().parseFromString(template, "text/html");
  */
 function Walker (doc, newdoc) {
     this.citePos = 1;
+    this.doc = doc;
     this.body = xpath.select("//body", doc)[0];
     this.newdoc = newdoc;
     this.newbody = xpath.select("//body", newdoc)[0];
@@ -154,12 +170,29 @@ Walker.prototype.getNodeType = function(node) {
 }
 
 Walker.prototype.run = function() {
+    // Purge p nodes that produce no meaningful output.
+    // This is necessary to avoid confusion in read-ahead
+    // handling of Inklings
+    var elems = this.doc.getElementsByTagName("p");
+    for (var i=elems.length-1; i>-1; i--) {
+        var elem = elems[i];
+        var val = elem.textContent;
+        val = val.replace(/(?:&nbsp;|¥s)/g, "");
+        if (!val) {
+            elem.parentNode.removeChild(elem);
+        }
+    }
+    
     this.processInputTree(this.body, true);
     // Okay, this isn't good enough. Because we now do look-ahead
     // on input nodes, empty ones are a problem. The trouble for a
     // quick and easy fix, though, is that the code below does a
     // final pass over OUTPUT to cull them: but we need to preemptively
     // purge them from input, before submitting to the converter.
+    //
+    // It looks as through purging empty p nodes alone in a preclean
+    // will do the trick. The we can purge b, i and blockquote here
+    // as per current state of play.
     //
     // Cleanup
     var tagList = ["p", "b", "i", "blockquote"];
@@ -174,6 +207,8 @@ Walker.prototype.run = function() {
         }
     }
     var output = pretty((new serializer()).serializeToString(this.newdoc));
+    output = `<!DOCTYPE html>
+${output}`;
     fs.writeFileSync(buildPath("sample-output.html"), output);
     // console.log(pretty((new serializer()).serializeToString(this.newdoc)))
 }
@@ -401,15 +436,6 @@ Walker.prototype.deepenNestingLevel = function(newListLevel, justLooking) {
     return ret;
 }
 
-Walker.prototype.appendSpaceNode = function() {
-    var span = this.newdoc.createElement("span");
-    span.setAttribute("class", "wide-space");
-    var space = this.newdoc.createTextNode(" ");
-    span.appendChild(space);
-    var target = this.getTarget();
-    target.appendChild(span);
-}
-
 /*
  * Okay, shoot. To close the box, we need to know when the last
  * Inkling is added. That's easy, BUT after identifying it, we
@@ -468,7 +494,7 @@ Walker.prototype.appendInklingNode = function(inputNode) {
 Walker.prototype.fixNodeAndAppend = function(node) {
     var ret = null;
     var tn = node.tagName;
-    var m = tn.match(/(h[0-9]|p|span|table|tr|td|i|li|ul|ol|b)/);
+    var m = tn.match(/(table|thead|tbody|span|h[0-9]|sup|p|tr|td|ul|ol|i|li|b)/);
     if (m) {
 	    if (m[1] === "p") {
 	        ret = this.newdoc.createElement("p");
@@ -505,12 +531,22 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 ret = this.newdoc.createElement(tn);
                 ret.setAttribute("class", "cite");
                 ret.setAttribute("data-info", dataInfo);
-            } else if (node.getAttribute("style") && node.getAttribute("style").match(/mso-tab-count/)) {
-                this.appendSpaceNode();
+            } else if (node.getAttribute("style") && node.getAttribute("style").match(/(?:mso-tab-count|mso-spacerun)/)) {
+                ret = this.newdoc.createElement("span");
+                ret.setAttribute("class", "wide-space");
+                var space = this.newdoc.createTextNode(" ");
+                ret.appendChild(space);
 	        } else {
                 ret = false;
 	        }
             // console.log(`Input node: ${node.nodeName}, Output node: ${ret}`);
+            this.appendOrdinaryNode(node, ret)
+        } else if (m[1] === "td") {
+            ret = this.newdoc.createElement("td");
+            var rowspan = node.getAttribute("rowspan")
+            if (rowspan) {
+                ret.setAttribute("rowspan", rowspan);
+            }
             this.appendOrdinaryNode(node, ret)
         } else {
 	        ret = this.newdoc.createElement(tn);
@@ -576,13 +612,24 @@ Walker.prototype.writeItemDataFileOrFiles = function(fieldObj) {
 }
 
 Walker.prototype.processInputTree = function(node) {
+    if (node.tagName === "body") {
+	    for(var i=0; i<node.childNodes.length; i++) {
+        var child = node.childNodes[i];
+		    this.processInputTree(child);
+	    }
+        return;
+    }
     var type = this.getNodeType(node);
     if (type === "text") {
-	    var content = node.nodeValue.replace(/&nbsp;/g, " ").replace(/¥s+/g, " ");
-	    if (content.trim()) {
-	        var newnode = this.newdoc.createTextNode(content);
-	        this.getTarget().appendChild(newnode);
-	    }
+        var content = node.nodeValue;
+        content = content.replace(/(?:&nbsp;)+/g, " ");
+        content = content.replace(/¥s+/g, " ");
+        content = content.replace(/&amp;/g, "&");
+        content = content.replace(/&gt;/g, ">");
+        content = content.replace(/&lt;/g, "<");
+        content = content.replace(/&quot;/g, '"');
+	    var newnode = this.newdoc.createTextNode(content);
+	    this.getTarget().appendChild(newnode);
     } else if (type === "node") {
 	    var style = node.getAttribute("style");
 	    if (style && style.match(/mso-list:Ignore/)) return;
