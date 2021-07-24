@@ -41,7 +41,7 @@ const itemDataPath = (fn) => {
   Initialize original DOM as source
 */
 // Saved as Web Page from Word
-var html_txt = fs.readFileSync("sample.html").toString();
+var html_txt = fs.readFileSync("sample-doc2.html").toString();
 var doc = new dom().parseFromString(html_txt, "text/html");
 
 
@@ -51,7 +51,17 @@ var doc = new dom().parseFromString(html_txt, "text/html");
 var template = `
 <html>
   <head>
-    <title>Indigo Book</title>
+    <title>Sample Output: Indigo Book</title>
+    <style>
+      .inkling-box {
+          border: 1px solid black;
+          padding-left: 1em;
+          padding-right: 1em;
+      }
+      .inkling-title {
+          font-variant: small-caps;
+      }
+    </style>
   </head>
   <body/>
 </html>
@@ -67,6 +77,7 @@ function Walker (doc, newdoc) {
     this.newdoc = newdoc;
     this.newbody = xpath.select("//body", newdoc)[0];
     this.listType = "ul";
+    this.didTab = false;
     
     // Only these node types are of interest
     this.processTypes = {
@@ -144,9 +155,27 @@ Walker.prototype.getNodeType = function(node) {
 
 Walker.prototype.run = function() {
     this.processInputTree(this.body, true);
+    // Okay, this isn't good enough. Because we now do look-ahead
+    // on input nodes, empty ones are a problem. The trouble for a
+    // quick and easy fix, though, is that the code below does a
+    // final pass over OUTPUT to cull them: but we need to preemptively
+    // purge them from input, before submitting to the converter.
+    //
+    // Cleanup
+    var tagList = ["p", "b", "i", "blockquote"];
+    for (var tagName of tagList) {
+        var elems = this.newdoc.getElementsByTagName(tagName);
+        for (var i=elems.length-1; i>-1; i--) {
+            var elem = elems[i];
+            var content = elem.textContent.trim();
+            if (!content || content === "&nbsp;") {
+                elem.parentNode.removeChild(elem);
+            }
+        }
+    }
     var output = pretty((new serializer()).serializeToString(this.newdoc));
     fs.writeFileSync(buildPath("sample-output.html"), output);
-    console.log(pretty((new serializer()).serializeToString(this.newdoc)))
+    // console.log(pretty((new serializer()).serializeToString(this.newdoc)))
 }
 
 Walker.prototype.padding = function(num) {
@@ -372,6 +401,70 @@ Walker.prototype.deepenNestingLevel = function(newListLevel, justLooking) {
     return ret;
 }
 
+Walker.prototype.appendSpaceNode = function() {
+    var span = this.newdoc.createElement("span");
+    span.setAttribute("class", "wide-space");
+    var space = this.newdoc.createTextNode(" ");
+    span.appendChild(space);
+    var target = this.getTarget();
+    target.appendChild(span);
+}
+
+/*
+ * Okay, shoot. To close the box, we need to know when the last
+ * Inkling is added. That's easy, BUT after identifying it, we
+ * need to process its children. OH! This is identical to the
+ * pattern in appendOrdinaryNode. Good, okay.
+ */
+
+Walker.prototype.openInklingBoxNode = function(inputNode) {
+    var inklingBox = this.newdoc.createElement("div");
+    inklingBox.setAttribute("class", "inkling-box");
+    this.addTarget(inklingBox);
+    var inklingTitle = this.newdoc.createElement("p");
+    inklingTitle.setAttribute("class", "inkling-title");
+    inklingBox.appendChild(inklingTitle);
+    this.addTarget(inklingTitle);
+	    for(var i=0; i<inputNode.childNodes.length; i++) {
+            var child = inputNode.childNodes[i];
+            // console.log(`   child: ${child.textContent}`);
+		    this.processInputTree(child);
+	    }
+    
+    var nextNode = inputNode.nextSibling;
+    while (this.getNodeType(nextNode) === "text") {
+        nextNode = nextNode.nextSibling;
+    }
+    if (!nextNode.getAttribute("class") || nextNode.getAttribute("class") !== "Inkling") {
+        // Close node AND box if we hit a non-inkling at the same nesting level
+        this.dropTarget();
+        this.dropTarget();
+    }
+}
+
+Walker.prototype.appendInklingNode = function(inputNode) {
+    this.dropTarget();
+    var inkling = this.newdoc.createElement("p");
+    inkling.setAttribute("class", "inkling");
+    this.addTarget(inkling);
+    
+	    for(var i=0; i<inputNode.childNodes.length; i++) {
+            var child = inputNode.childNodes[i];
+            // console.log(`   child: ${child.textContent}`);
+		    this.processInputTree(child);
+	    }
+
+    var nextNode = inputNode.nextSibling;
+    while (this.getNodeType(nextNode) === "text") {
+        nextNode = nextNode.nextSibling;
+    }
+    if (!nextNode.getAttribute("class") || nextNode.getAttribute("class") !== "Inkling") {
+        // Close node AND box if we hit a non-inkling at the same nesting level
+        this.dropTarget();
+        this.dropTarget();
+    }
+}
+
 Walker.prototype.fixNodeAndAppend = function(node) {
     var ret = null;
     var tn = node.tagName;
@@ -380,9 +473,12 @@ Walker.prototype.fixNodeAndAppend = function(node) {
 	    if (m[1] === "p") {
 	        ret = this.newdoc.createElement("p");
 	        var cls = node.getAttribute("class");
-	        if (cls === "Inkling") {
-		        ret.setAttribute("class", cls);
-                this.appendOrdinaryNode(node, ret)
+	        if (cls === "InklingTitle") {
+                // Encloses Inkling Title and its siblings in a nice box
+                this.openInklingBoxNode(node);
+	        } else if (cls === "Inkling") {
+                // Sniffs ahead to close the box
+                this.appendInklingNode(node);
 	        } else if (cls === "MsoListParagraphCxSpFirst") {
                 // List formatting in Word HTML output is awful
                 this.appendOpeningListNode(node);
@@ -409,6 +505,8 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 ret = this.newdoc.createElement(tn);
                 ret.setAttribute("class", "cite");
                 ret.setAttribute("data-info", dataInfo);
+            } else if (node.getAttribute("style") && node.getAttribute("style").match(/mso-tab-count/)) {
+                this.appendSpaceNode();
 	        } else {
                 ret = false;
 	        }
