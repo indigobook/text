@@ -18,7 +18,7 @@ const jurisMapPath = (fn) => {
 }
 
 const buildPath = (fn) => {
-    var stub = path.join(".", "build");
+    var stub = path.join(".", "docs");
     fs.mkdirSync(stub, {recursive: true});
     if (fn) {
         return path.join(stub, fn);
@@ -683,4 +683,4 @@ var positionMap = {
 
 const walker = new Walker(doc, newdoc);
 walker.run();
-console.log("Generated files are at build/sample-output.html and under build/static/itemdata");
+console.log("Generated files are under ./docs");
