@@ -1,4 +1,5 @@
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const dom = require("htmldom2").DOMParser;
 const serializer = require("htmldom2").XMLSerializer;
@@ -41,9 +42,22 @@ const itemDataPath = (fn) => {
   Initialize original DOM as source
 */
 // Saved as Web Page from Word
-var html_txt = fs.readFileSync("sample-doc2.html").toString();
-var doc = new dom().parseFromString(html_txt, "text/html");
-
+const domifyInput = (filePath) => {
+    var res = {};
+    if (fs.existsSync(filePath)) {
+        var html_txt = fs.readFileSync(filePath).toString();
+        // The volume of these empty namespaced para tags in the source
+        // can apparently cause a stack overflow in the parser.
+        html_txt = html_txt.split("<o:p></o:p>").join("");
+        res.doc = new dom().parseFromString(html_txt, "text/html");
+        res.filename = path.basename(filePath);
+    } else {
+        var err = new Error(`The file "${filePath}" does not exist.`);
+        console.log(err.message);
+        process.exit();
+    }
+    return res;
+}
 
 /*
   Initialize new DOM as output target.
@@ -76,6 +90,9 @@ var template = `
           border: 1px solid #ccc;
           border-collapse: collapse;
       }
+      td.grey-box {
+          background:#D0CECE;
+      }
     </style>
   </head>
   <body></body>
@@ -94,6 +111,7 @@ function Walker (doc, newdoc) {
     this.newbody = xpath.select("//body", newdoc)[0];
     this.listType = "ul";
     this.didTab = false;
+    this.insideInkling = false;
     
     // Only these node types are of interest
     this.processTypes = {
@@ -169,7 +187,7 @@ Walker.prototype.getNodeType = function(node) {
     return this.processTypes[node.nodeType];
 }
 
-Walker.prototype.run = function() {
+Walker.prototype.run = function(fileStub) {
     // Purge p nodes that produce no meaningful output.
     // This is necessary to avoid confusion in read-ahead
     // handling of Inklings
@@ -209,7 +227,7 @@ Walker.prototype.run = function() {
     var output = pretty((new serializer()).serializeToString(this.newdoc));
     output = `<!DOCTYPE html>
 ${output}`;
-    fs.writeFileSync(buildPath("sample-output.html"), output);
+    fs.writeFileSync(`${buildPath(fileStub)}`, output);
     // console.log(pretty((new serializer()).serializeToString(this.newdoc)))
 }
 
@@ -331,7 +349,11 @@ Walker.prototype.setListType = function(node) {
     // values and apply a heuristic.
     var ret = "ul";
     var bulletOrNumber = xpath.select('.//span[@style="mso-list:Ignore"]', node)[0];
-    console.log(bulletOrNumber.firstChild.nodeValue)
+    if (bulletOrNumber) {
+        console.log(bulletOrNumber.firstChild.nodeValue)
+    } else {
+        console.log("No number in list");
+    }
     if (bulletOrNumber && bulletOrNumber.firstChild && this.getNodeType(bulletOrNumber.firstChild) === "text") {
         var chr = bulletOrNumber.firstChild.nodeValue;
         if (chr.match(/^[a-zA-Z0-9]/)) {
@@ -444,6 +466,7 @@ Walker.prototype.deepenNestingLevel = function(newListLevel, justLooking) {
  */
 
 Walker.prototype.openInklingBoxNode = function(inputNode) {
+    this.insideInkling = true;
     var inklingBox = this.newdoc.createElement("div");
     inklingBox.setAttribute("class", "inkling-box");
     this.addTarget(inklingBox);
@@ -465,10 +488,17 @@ Walker.prototype.openInklingBoxNode = function(inputNode) {
         // Close node AND box if we hit a non-inkling at the same nesting level
         this.dropTarget();
         this.dropTarget();
+        this.insideInkling = false;
     }
 }
 
 Walker.prototype.appendInklingNode = function(inputNode) {
+    if (!this.insideInkling) {
+        var err = new Error(`Inkling is not preceded by Inkling Title.
+Hint: ${inputNode.textContent}`);
+        console.log(err.message);
+        process.exit();
+    }
     this.dropTarget();
     var inkling = this.newdoc.createElement("p");
     inkling.setAttribute("class", "inkling");
@@ -488,6 +518,7 @@ Walker.prototype.appendInklingNode = function(inputNode) {
         // Close node AND box if we hit a non-inkling at the same nesting level
         this.dropTarget();
         this.dropTarget();
+        this.insideInkling = false;
     }
 }
 
@@ -546,6 +577,10 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             var rowspan = node.getAttribute("rowspan")
             if (rowspan) {
                 ret.setAttribute("rowspan", rowspan);
+            }
+            var style = node.getAttribute("style");
+            if (style && style.match(/background:#D0CECE;/)) {
+                ret.setAttribute("class", "grey-box");
             }
             this.appendOrdinaryNode(node, ret)
         } else {
@@ -680,7 +715,19 @@ var positionMap = {
 /*
 */
 
+var inputFile = process.argv[2];
 
-const walker = new Walker(doc, newdoc);
-walker.run();
+if (inputFile && inputFile.slice(-5) === ".html") {
+    var res = domifyInput(inputFile);
+} else {
+    var err = new Error("Run this script with an HTML source file as argument");
+    console.log(err.message);
+    process.exit();
+}
+
+// Need to get filename stump, and save under ./docs under the same name in run();
+// Give run() an argument?
+
+const walker = new Walker(res.doc, newdoc);
+walker.run(res.filename);
 console.log("Generated files are under ./docs");
