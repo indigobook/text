@@ -53,7 +53,7 @@ const domifyInput = (filePath) => {
         res.filename = path.basename(filePath);
     } else {
         var err = new Error(`The file "${filePath}" does not exist.`);
-        console.log(err.message);
+        console.log(`  Error: ${err.message}`);
         process.exit();
     }
     return res;
@@ -191,6 +191,8 @@ Walker.prototype.run = function(fileStub) {
     // Purge p nodes that produce no meaningful output.
     // This is necessary to avoid confusion in read-ahead
     // handling of Inklings
+    this.fileName = fileStub;
+    console.log(`Processing for: ${this.fileName}`);
     var elems = this.doc.getElementsByTagName("p");
     for (var i=elems.length-1; i>-1; i--) {
         var elem = elems[i];
@@ -350,9 +352,9 @@ Walker.prototype.setListType = function(node) {
     var ret = "ul";
     var bulletOrNumber = xpath.select('.//span[@style="mso-list:Ignore"]', node)[0];
     if (bulletOrNumber) {
-        console.log(bulletOrNumber.firstChild.nodeValue)
+        // console.log(`  ${bulletOrNumber.firstChild.nodeValue}`)
     } else {
-        console.log("No number in list");
+        console.log(`  No number in list, in file "${this.fileName}" under "${node.parentNode.textContent.trim().slice(0,20)}" near "${node.textContent.trim().slice(0,20)}"`);
     }
     if (bulletOrNumber && bulletOrNumber.firstChild && this.getNodeType(bulletOrNumber.firstChild) === "text") {
         var chr = bulletOrNumber.firstChild.nodeValue;
@@ -494,9 +496,9 @@ Walker.prototype.openInklingBoxNode = function(inputNode) {
 
 Walker.prototype.appendInklingNode = function(inputNode) {
     if (!this.insideInkling) {
-        var err = new Error(`Inkling is not preceded by Inkling Title.
-Hint: ${inputNode.textContent}`);
-        console.log(err.message);
+        var err = new Error(`  Inkling is not preceded by Inkling Title.
+  Hint: ${inputNode.textContent}`);
+        console.log(`  ${err.message}`);
         process.exit();
     }
     this.dropTarget();
@@ -522,6 +524,24 @@ Hint: ${inputNode.textContent}`);
     }
 }
 
+Walker.prototype.getNextElementSibling = function(node) {
+    while (node !== null) {
+        node = node.nextSibling;
+        if (node && this.getNodeType(node) === "node") {
+            break;
+        }
+    }
+    return node;
+};
+
+Walker.prototype.getNextNonEmptyElementSibling = function(node) {
+    node = this.getNextElementSibling(node);
+    while (node && !node.textContent.trim()) {
+        node = this.getNextElementSibling(node);
+    }
+    return node;
+};
+
 Walker.prototype.fixNodeAndAppend = function(node) {
     var ret = null;
     var tn = node.tagName;
@@ -530,21 +550,46 @@ Walker.prototype.fixNodeAndAppend = function(node) {
 	    if (m[1] === "p") {
 	        ret = this.newdoc.createElement("p");
 	        var cls = node.getAttribute("class");
+            var style = node.getAttribute("style");
+            var isList = style && style.indexOf("mso-list") > -1;
+            var nextElementSibling = this.getNextNonEmptyElementSibling(node);
+            var nextElementSiblingIsList = false;
+            if (nextElementSibling) {
+                var nextElementSiblingStyle = nextElementSibling.getAttribute("style");
+                if (nextElementSiblingStyle) {
+                    nextElementSiblingIsList = nextElementSiblingStyle.indexOf("mso-list") > -1;
+                }
+            }
 	        if (cls === "InklingTitle") {
                 // Encloses Inkling Title and its siblings in a nice box
                 this.openInklingBoxNode(node);
 	        } else if (cls === "Inkling") {
                 // Sniffs ahead to close the box
                 this.appendInklingNode(node);
-	        } else if (cls === "MsoListParagraphCxSpFirst") {
+	        } else if (cls === "MsoListParagraphCxSpFirst" && isList) {
                 // List formatting in Word HTML output is awful
                 this.appendOpeningListNode(node);
-	        } else if (cls === "MsoListParagraphCxSpMiddle") {
+	        } else if (cls === "MsoListParagraphCxSpMiddle" && isList) {
                 // List formatting in Word HTML output is awful
                 this.appendMiddleListNode(node);
-	        } else if (cls === "MsoListParagraphCxSpLast") {
+	        } else if (cls === "MsoListParagraphCxSpLast" && isList) {
                 // List formatting in Word HTML output is awful
                 this.appendClosingListNode(node);
+
+                // Also look for Body in a separate series of conditions,
+                // but in this case look-ahead to see if next sibling
+                // node has no margin-left value. God, this stuff is awful.
+	        } else if (cls === "Body" && isList) {
+                console.log(`  HIT OK: [${nextElementSiblingIsList}] ${style}`);
+                // List formatting in Word HTML output is awful
+                this.appendOpeningListNode(node);
+	        } else if (cls === "Body" && isList) {
+                // List formatting in Word HTML output is awful
+                this.appendMiddleListNode(node);
+	        } else if (cls === "Body" && isList) {
+                // List formatting in Word HTML output is awful
+                this.appendClosingListNode(node);
+                
             } else {
                 if (node.childNodes.length > 0) {
                     this.appendOrdinaryNode(node, ret);
@@ -730,4 +775,4 @@ if (inputFile && inputFile.slice(-5) === ".html") {
 
 const walker = new Walker(res.doc, newdoc);
 walker.run(res.filename);
-console.log("Generated files are under ./docs");
+console.log("  Generated files are under ./docs");
