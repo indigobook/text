@@ -374,6 +374,20 @@ Walker.prototype.setListType = function(node) {
  * 5. Process any text of the current input node
  */
 
+// Okay, I've done this in the wrong way.
+// Lists may be represented in several ways in the exported HTML:
+// * As a proper list marked up with ul/li or ol/li (yay); or
+// * As p nodes with a list class; OR
+// * As ordinary p nodes with class Body.
+// The ONLY common feature of these three is that they have
+// a style attribute mso-list with a string value containing
+// "level[1-9]" in it somewhere. So reconstructed markup needs
+// to use that value as a primary, not secondary, indicator
+// of BOTH list status AND list nesting level. In the code below,
+// I've used the extracted level value to set nesting level, but
+// not to determine if we've entered/exited a list environment
+// in the first place. That needs to be fixed.
+
 Walker.prototype.appendOpeningListNode = function(inputNode) {
     this.setListType(inputNode);
     // 1. noop
@@ -580,7 +594,8 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 // but in this case look-ahead to see if next sibling
                 // node has no margin-left value. God, this stuff is awful.
 	        } else if (cls === "Body" && isList) {
-                console.log(`  HIT OK: [${nextElementSiblingIsList}] ${style}`);
+                // zzz
+                console.log(`  HIT OK: [${nextElementSiblingIsList}] NEAR ${node.textContent.split("\n").join(" ").split("\r").join(" ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().slice(0,25)}`);
                 // List formatting in Word HTML output is awful
                 this.appendOpeningListNode(node);
 	        } else if (cls === "Body" && isList) {
