@@ -174,7 +174,7 @@ function Walker (doc, newdoc) {
     this.reverseSignalMap = function() {
         var ret = {};
         for (var key in signalMap) {
-            var val = signalMap[key].replace(/[¥s,]*$/, "");
+            var val = signalMap[key].replace(/[\s,]*$/, "");
             ret[val] = key;
         }
         return ret;
@@ -197,7 +197,7 @@ Walker.prototype.run = function(fileStub) {
     for (var i=elems.length-1; i>-1; i--) {
         var elem = elems[i];
         var val = elem.textContent;
-        val = val.replace(/(?:&nbsp;|¥s)/g, "");
+        val = val.replace(/(?:&nbsp;|\s)/g, "");
         if (!val) {
             elem.parentNode.removeChild(elem);
         }
@@ -326,20 +326,28 @@ Walker.prototype.checkForBlockIndent = function(node) {
     if (node.tagName === "p") {
         var style = node.getAttribute("style");
         if (style) {
-            if (style.match(/margin-left/)) {
-                ret = true;
+            var m = style.match(/margin-left:\s*([0-9]+)/);
+            if (m) {
+                var margin = parseInt(m[1], 10);
+                if (margin > 0) {
+                    ret = true;
+                }
             }
         }
     }
     return ret;
 }
 
-Walker.prototype.getListLevel = function(node) {
-    var ret = 0;
+Walker.prototype.getListInfo = function(node) {
+    var ret = null;
     var style = node.getAttribute("style");
-    var m = style.match(/level([0-9])/);
-    if (m) {
-        ret = parseInt(m[1], 10);
+    if (style) {
+        ret = {};
+        var m = style.match(/mso-list:\s*(l[0-9]+)[^;]*level([0-9])/);
+        if (m) {
+            ret.id = m[1];
+            ret.level = parseInt(m[2], 10);
+        }
     }
     return ret;
 }
@@ -388,7 +396,7 @@ Walker.prototype.setListType = function(node) {
 // not to determine if we've entered/exited a list environment
 // in the first place. That needs to be fixed.
 
-Walker.prototype.appendOpeningListNode = function(inputNode) {
+Walker.prototype.appendOpeningListNode = function(inputNode, newListLevel) {
     this.setListType(inputNode);
     // 1. noop
     // 2. noop
@@ -397,9 +405,8 @@ Walker.prototype.appendOpeningListNode = function(inputNode) {
     this.addTarget(olul);
 	var li = this.newdoc.createElement("li");
     this.addTarget(li);
-    // listLevel should always be 1 in this function. I think.
-    this.listLevel = this.getListLevel(inputNode);
     // 4. noop
+    this.listLevel = newListLevel;
     // 5. Text children
 	for(var i=0; i<inputNode.childNodes.length; i++) {
         var child = inputNode.childNodes[i];
@@ -407,10 +414,9 @@ Walker.prototype.appendOpeningListNode = function(inputNode) {
 	}
 }
 
-Walker.prototype.appendMiddleListNode = function(inputNode) {
+Walker.prototype.appendMiddleListNode = function(inputNode, newListLevel) {
     this.setListType(inputNode);
     // 1. Close any nested list levels that we're done with
-    var newListLevel = this.getListLevel(inputNode);
     this.raiseNestingLevel(newListLevel);
     var levelWillDeepen = this.deepenNestingLevelCheck(newListLevel);
     if (!levelWillDeepen) {
@@ -565,7 +571,8 @@ Walker.prototype.fixNodeAndAppend = function(node) {
 	        ret = this.newdoc.createElement("p");
 	        var cls = node.getAttribute("class");
             var style = node.getAttribute("style");
-            var isList = style && style.indexOf("mso-list") > -1;
+            var listInfo = this.getListInfo(node);
+            listInfo = listInfo ? listInfo : {};
             var nextElementSibling = this.getNextNonEmptyElementSibling(node);
             var nextElementSiblingIsList = false;
             if (nextElementSibling) {
@@ -580,32 +587,41 @@ Walker.prototype.fixNodeAndAppend = function(node) {
 	        } else if (cls === "Inkling") {
                 // Sniffs ahead to close the box
                 this.appendInklingNode(node);
-	        } else if (cls === "MsoListParagraphCxSpFirst" && isList) {
+	        } else if (cls === "MsoListParagraphCxSpFirst" && listInfo.level) {
                 // List formatting in Word HTML output is awful
-                this.appendOpeningListNode(node);
-	        } else if (cls === "MsoListParagraphCxSpMiddle" && isList) {
+                this.appendOpeningListNode(node, listInfo.level);
+	        } else if (cls === "MsoListParagraphCxSpMiddle" && listInfo.level) {
                 // List formatting in Word HTML output is awful
-                this.appendMiddleListNode(node);
-	        } else if (cls === "MsoListParagraphCxSpLast" && isList) {
+                this.appendMiddleListNode(node, listInfo.level);
+	        } else if (cls === "MsoListParagraphCxSpLast" && listInfo.level) {
                 // List formatting in Word HTML output is awful
-                this.appendClosingListNode(node);
+                this.appendClosingListNode(node, listInfo.level);
 
                 // Also look for Body in a separate series of conditions,
                 // but in this case look-ahead to see if next sibling
                 // node has no margin-left value. God, this stuff is awful.
-	        } else if (cls === "Body" && isList) {
-                // zzz
-                console.log(`  HIT OK: [${nextElementSiblingIsList}] NEAR ${node.textContent.split("\n").join(" ").split("\r").join(" ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().slice(0,25)}`);
+	        } else if (cls === "Body" && !this.listLevel && listInfo.level) {
+
+                // XXX
+                // Need working sniff for end-of-list here. We currently get
+                // false fall-throughs to the second condition. Probably list level
+                // is not being updated properly. At least that will be the first
+                // thing to check.
+                // XXX
+                
                 // List formatting in Word HTML output is awful
-                this.appendOpeningListNode(node);
-	        } else if (cls === "Body" && isList) {
+                this.appendOpeningListNode(node, listInfo.level);
+	        } else if (cls === "Body" && /* nextElementSiblingIsList && */ listInfo.level) {
                 // List formatting in Word HTML output is awful
-                this.appendMiddleListNode(node);
-	        } else if (cls === "Body" && isList) {
+                this.appendMiddleListNode(node, listInfo.level);
+	        } else if (cls === "Body" && /* !nextElementSiblingIsList && */ listInfo.level) {
                 // List formatting in Word HTML output is awful
-                this.appendClosingListNode(node);
+                this.appendClosingListNode(node, listInfo.level);
                 
             } else {
+                
+                // Also close any list node that might be open when we hit this?
+                
                 if (node.childNodes.length > 0) {
                     this.appendOrdinaryNode(node, ret);
                 }
@@ -718,7 +734,7 @@ Walker.prototype.processInputTree = function(node) {
     if (type === "text") {
         var content = node.nodeValue;
         content = content.replace(/(?:&nbsp;)+/g, " ");
-        content = content.replace(/¥s+/g, " ");
+        content = content.replace(/\s+/g, " ");
         content = content.replace(/&amp;/g, "&");
         content = content.replace(/&gt;/g, ">");
         content = content.replace(/&lt;/g, "<");
