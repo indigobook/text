@@ -380,7 +380,7 @@ Walker.prototype.setListType = function(node) {
     if (bulletOrNumber) {
         // console.log(`  ${bulletOrNumber.firstChild.nodeValue}`)
     } else {
-        console.log(`  No number in list, in file "${this.fileName}" under "${node.parentNode.textContent.trim().slice(0,20)}" near "${node.textContent.trim().slice(0,20)}"`);
+        console.log(`  No number in list, in file "${this.fileName}" under "${node.parentNode.textContent.trim().slice(0,20)}" near "${node.textContent.trim().slice(0,60)}"`);
     }
     if (bulletOrNumber && bulletOrNumber.firstChild && this.getNodeType(bulletOrNumber.firstChild) === "text") {
         var chr = bulletOrNumber.firstChild.nodeValue;
@@ -634,15 +634,7 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 // List formatting in Word HTML output is awful
                 this.appendSoloListNode(node, listInfo.level);
 	        } else if (cls === "Body" && !this.listLevel && listInfo.level) {
-                
-                // XXX This is very close to working correctly. It needs a tiny bit
-                // XXX of state awareness around the code that spits out blockquote, and
-                // XXX maybe around ordinary-node passthrough as well, to be sure
-                // XXX lists close properly.
-                
-                console.log(`OPEN (b) ${node.textContent.split("\n").join(" ").split("\r").join("").slice(0, 60)}`);
-                //console.log(`OPEN (b)`);
-
+                console.log(`OPEN (b)`);
                 // List formatting in Word HTML output is awful
                 this.appendOpeningListNode(node, listInfo.level);
                 this.listLevel = listInfo.level;
@@ -658,9 +650,11 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 this.listLevel = listInfo.level-1;
             } else if (this.listLevel && !this.getIndent(node)) {
                 // Close any list node that might be open when we hit this?
-                    console.log("CLOSE (b')");
-                    // this.appendClosingListNode(node, listInfo.level);
-                    this.listLevel = 0;
+                console.log("CLOSE (b')");
+                // this.appendClosingListNode(node, listInfo.level);
+                this.dropTarget();
+                this.dropTarget();
+                this.listLevel = 0;
             } else {
                 if (node.childNodes.length > 0) {
                     this.appendOrdinaryNode(node, ret);
