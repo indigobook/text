@@ -414,6 +414,25 @@ Walker.prototype.setListType = function(node) {
 // not to determine if we've entered/exited a list environment
 // in the first place. That needs to be fixed.
 
+Walker.prototype.appendSoloListNode = function(inputNode, newListLevel) {
+    this.setListType(inputNode);
+    // 1. noop
+    // 2. noop
+    // 3. Open list environment and set initial LI
+	var olul = this.newdoc.createElement(this.listType);
+    this.addTarget(olul);
+	var li = this.newdoc.createElement("li");
+    this.addTarget(li);
+    // 4. noop
+    // 5. Text children
+	for(var i=0; i<inputNode.childNodes.length; i++) {
+        var child = inputNode.childNodes[i];
+		this.processInputTree(child);
+	}
+    this.dropTarget();
+    this.dropTarget();
+}
+
 Walker.prototype.appendOpeningListNode = function(inputNode, newListLevel) {
     this.setListType(inputNode);
     // 1. noop
@@ -610,6 +629,10 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 // List formatting in Word HTML output is awful
                 this.appendClosingListNode(node, listInfo.level);
                 this.listLevel = listInfo.level-1;
+	        } else if (cls === "MsoListParagraph" && listInfo.level) {
+                console.log("ONE-OFF LIST BULLET");
+                // List formatting in Word HTML output is awful
+                this.appendSoloListNode(node, listInfo.level);
 	        } else if (cls === "Body" && !this.listLevel && listInfo.level) {
                 
                 // XXX This is very close to working correctly. It needs a tiny bit
@@ -633,10 +656,12 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 console.log("CLOSE (b)");
                 this.appendClosingListNode(node, listInfo.level);
                 this.listLevel = listInfo.level-1;
+            } else if (this.listLevel && !this.getIndent(node)) {
+                // Close any list node that might be open when we hit this?
+                    console.log("CLOSE (b')");
+                    // this.appendClosingListNode(node, listInfo.level);
+                    this.listLevel = 0;
             } else {
-                
-                // Also close any list node that might be open when we hit this?
-
                 if (node.childNodes.length > 0) {
                     this.appendOrdinaryNode(node, ret);
                 }
