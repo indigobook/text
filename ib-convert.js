@@ -112,6 +112,8 @@ function Walker (doc, newdoc) {
     this.listType = "ul";
     this.didTab = false;
     this.insideInkling = false;
+    this.listLevel = null;
+    this.listID = null;
     
     // Only these node types are of interest
     this.processTypes = {
@@ -242,7 +244,8 @@ Walker.prototype.padding = function(num) {
 }
 
 Walker.prototype.getTarget = function() {
-    return this.stack.slice(-1)[0];
+    var ret = this.stack.slice(-1)[0];
+    return ret;
 }
 
 Walker.prototype.addTarget = function(node) {
@@ -252,7 +255,8 @@ Walker.prototype.addTarget = function(node) {
 }
 
 Walker.prototype.dropTarget = function() {
-    this.stack.pop();
+    var node = this.stack.pop();
+    // console.log(node.textContent);
 }
 
 Walker.prototype.getJurisdictionMap = function(code) {
@@ -305,7 +309,7 @@ Walker.prototype.appendOrdinaryNode = function(inputNode, outputNode) {
     // into their children, if any.
     if (outputNode !== null) {
         if (outputNode) {
-            if (this.checkForBlockIndent(inputNode)) {
+            if (this.getIndent(inputNode)) {
                 outputNode = this.newdoc.createElement("blockquote");
             }
             this.addTarget(outputNode);
@@ -321,16 +325,16 @@ Walker.prototype.appendOrdinaryNode = function(inputNode, outputNode) {
     }
 }
 
-Walker.prototype.checkForBlockIndent = function(node) {
-    var ret = false;
+Walker.prototype.getIndent = function(node) {
+    var ret = 0;
     if (node.tagName === "p") {
         var style = node.getAttribute("style");
         if (style) {
-            var m = style.match(/margin-left:\s*([0-9]+)/);
+            var m = style.match(/margin-left:\s*([-0-9]+)/);
             if (m) {
                 var margin = parseInt(m[1], 10);
                 if (margin > 0) {
-                    ret = true;
+                    ret = margin;
                 }
             }
         }
@@ -339,7 +343,8 @@ Walker.prototype.checkForBlockIndent = function(node) {
 }
 
 Walker.prototype.getListInfo = function(node) {
-    var ret = null;
+    var ret = {};
+    var currentIndent = this.getIndent(node);
     var style = node.getAttribute("style");
     if (style) {
         ret = {};
@@ -349,13 +354,26 @@ Walker.prototype.getListInfo = function(node) {
             ret.level = parseInt(m[2], 10);
         }
     }
+    var nextElementSibling = this.getNextNonEmptyElementSibling(node);
+    ret.nextElementSiblingIsList = false;
+    if (nextElementSibling) {
+        var nextIndent = this.getIndent(nextElementSibling);
+        if (nextIndent >= currentIndent) {
+            ret.nextElementSiblingIsList = true;
+        } else {
+            var nextElementSiblingStyle = nextElementSibling.getAttribute("style");
+            if (nextElementSiblingStyle) {
+                ret.nextElementSiblingIsList = nextElementSiblingStyle.indexOf("mso-list") > -1;
+            }
+        }
+    }
     return ret;
 }
 
 Walker.prototype.setListType = function(node) {
     // This is just, like, wow. Word HTML output contains nothing in
     // the attributes to indicate whether a list is a numbered list
-    // or a set of bullet points. We need to extract the literal
+   // or a set of bullet points. We need to extract the literal
     // values and apply a heuristic.
     var ret = "ul";
     var bulletOrNumber = xpath.select('.//span[@style="mso-list:Ignore"]', node)[0];
@@ -406,7 +424,6 @@ Walker.prototype.appendOpeningListNode = function(inputNode, newListLevel) {
 	var li = this.newdoc.createElement("li");
     this.addTarget(li);
     // 4. noop
-    this.listLevel = newListLevel;
     // 5. Text children
 	for(var i=0; i<inputNode.childNodes.length; i++) {
         var child = inputNode.childNodes[i];
@@ -453,7 +470,7 @@ Walker.prototype.raiseNestingLevel = function(newListLevel) {
             this.dropTarget();
             // Drop OL|UL
             this.dropTarget();
-            this.listLevel--;
+            newListLevel++;
         }
     }
     return ret;
@@ -473,7 +490,7 @@ Walker.prototype.deepenNestingLevel = function(newListLevel, justLooking) {
                 this.addTarget(olul);
 	            var li = this.newdoc.createElement("li");
                 this.addTarget(li);
-                this.listLevel++;
+                newListLevel--;
             }
         }
     }
@@ -572,15 +589,6 @@ Walker.prototype.fixNodeAndAppend = function(node) {
 	        var cls = node.getAttribute("class");
             var style = node.getAttribute("style");
             var listInfo = this.getListInfo(node);
-            listInfo = listInfo ? listInfo : {};
-            var nextElementSibling = this.getNextNonEmptyElementSibling(node);
-            var nextElementSiblingIsList = false;
-            if (nextElementSibling) {
-                var nextElementSiblingStyle = nextElementSibling.getAttribute("style");
-                if (nextElementSiblingStyle) {
-                    nextElementSiblingIsList = nextElementSiblingStyle.indexOf("mso-list") > -1;
-                }
-            }
 	        if (cls === "InklingTitle") {
                 // Encloses Inkling Title and its siblings in a nice box
                 this.openInklingBoxNode(node);
@@ -588,40 +596,47 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 // Sniffs ahead to close the box
                 this.appendInklingNode(node);
 	        } else if (cls === "MsoListParagraphCxSpFirst" && listInfo.level) {
+                console.log("OPEN (a)");
                 // List formatting in Word HTML output is awful
                 this.appendOpeningListNode(node, listInfo.level);
+                this.listLevel = listInfo.level;
 	        } else if (cls === "MsoListParagraphCxSpMiddle" && listInfo.level) {
+                console.log("   MIDDLE (a)");
                 // List formatting in Word HTML output is awful
                 this.appendMiddleListNode(node, listInfo.level);
+                this.listLevel = listInfo.level;
 	        } else if (cls === "MsoListParagraphCxSpLast" && listInfo.level) {
+                console.log("CLOSE(a)");
                 // List formatting in Word HTML output is awful
                 this.appendClosingListNode(node, listInfo.level);
-
-                // Also look for Body in a separate series of conditions,
-                // but in this case look-ahead to see if next sibling
-                // node has no margin-left value. God, this stuff is awful.
+                this.listLevel = listInfo.level-1;
 	        } else if (cls === "Body" && !this.listLevel && listInfo.level) {
-
-                // XXX
-                // Need working sniff for end-of-list here. We currently get
-                // false fall-throughs to the second condition. Probably list level
-                // is not being updated properly. At least that will be the first
-                // thing to check.
-                // XXX
                 
+                // XXX This is very close to working correctly. It needs a tiny bit
+                // XXX of state awareness around the code that spits out blockquote, and
+                // XXX maybe around ordinary-node passthrough as well, to be sure
+                // XXX lists close properly.
+                
+                console.log(`OPEN (b) ${node.textContent.split("\n").join(" ").split("\r").join("").slice(0, 60)}`);
+                //console.log(`OPEN (b)`);
+
                 // List formatting in Word HTML output is awful
                 this.appendOpeningListNode(node, listInfo.level);
-	        } else if (cls === "Body" && /* nextElementSiblingIsList && */ listInfo.level) {
+                this.listLevel = listInfo.level;
+	        } else if (cls === "Body" && listInfo.nextElementSiblingIsList && listInfo.level) {
                 // List formatting in Word HTML output is awful
+                console.log("  MIDDLE (b)");
                 this.appendMiddleListNode(node, listInfo.level);
-	        } else if (cls === "Body" && /* !nextElementSiblingIsList && */ listInfo.level) {
+                this.listLevel = listInfo.level;
+	        } else if (cls === "Body" && !listInfo.nextElementSiblingIsList && listInfo.level) {
                 // List formatting in Word HTML output is awful
+                console.log("CLOSE (b)");
                 this.appendClosingListNode(node, listInfo.level);
-                
+                this.listLevel = listInfo.level-1;
             } else {
                 
                 // Also close any list node that might be open when we hit this?
-                
+
                 if (node.childNodes.length > 0) {
                     this.appendOrdinaryNode(node, ret);
                 }
