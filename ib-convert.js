@@ -98,17 +98,19 @@ var template = `
   <body></body>
 </html>
 `.trim();
-var newdoc = new dom().parseFromString(template, "text/html");
 
 /*
  * Conversion factory
  */
-function Walker (doc, newdoc) {
-    this.citePos = 1;
-    this.doc = doc;
-    this.body = xpath.select("//body", doc)[0];
-    this.newdoc = newdoc;
+function Walker (inputFile) {
+    var res = domifyInput(inputFile);
+    this.fileName = res.filename;
+    this.doc = res.doc;
+    this.body = xpath.select("//body", this.doc)[0];
+    this.newdoc = new dom().parseFromString(template, "text/html");
     this.newbody = xpath.select("//body", newdoc)[0];
+
+    this.citePos = 1;
     this.listType = "ul";
     this.didTab = false;
     this.insideInkling = false;
@@ -189,11 +191,10 @@ Walker.prototype.getNodeType = function(node) {
     return this.processTypes[node.nodeType];
 }
 
-Walker.prototype.run = function(fileStub) {
+Walker.prototype.run = function() {
     // Purge p nodes that produce no meaningful output.
     // This is necessary to avoid confusion in read-ahead
     // handling of Inklings
-    this.fileName = fileStub;
     console.log(`Processing for: ${this.fileName}`);
     var elems = this.doc.getElementsByTagName("p");
     for (var i=elems.length-1; i>-1; i--) {
@@ -233,6 +234,7 @@ Walker.prototype.run = function(fileStub) {
 ${output}`;
     fs.writeFileSync(`${buildPath(fileStub)}`, output);
     // console.log(pretty((new serializer()).serializeToString(this.newdoc)))
+    console.log("  Generated files are under ./docs");
 }
 
 Walker.prototype.padding = function(num) {
@@ -822,22 +824,28 @@ var positionMap = {
 };
 */
 
-/*
-*/
-
-var inputFile = process.argv[2];
-
-if (inputFile && inputFile.slice(-5) === ".html") {
-    var res = domifyInput(inputFile);
-} else {
-    var err = new Error("Run this script with an HTML source file as argument");
-    console.log(err.message);
-    process.exit();
-}
 
 // Need to get filename stump, and save under ./docs under the same name in run();
 // Give run() an argument?
 
-const walker = new Walker(res.doc, newdoc);
-walker.run(res.filename);
-console.log("  Generated files are under ./docs");
+
+
+
+
+if (require.main === module) {
+    var opt = require('node-getopt').create([
+        ["i", "input-file", "File for input"],
+        ["h", "help", "Display this help"]
+    ])
+        .bindHelp()
+        .parseSystem();
+    if (!opt.argv[0] || opt.argv[0].slice(-5) === ".html") {
+        var err = new Error("Run this script with an HTML source file as argument");
+        console.log(err.message);
+        process.exit();
+    }
+    const walker = new Walker(opt.argv[0]);
+    walker.run();
+} else {
+    module.exports = Walker;
+}
