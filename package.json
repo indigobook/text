@@ -5,6 +5,7 @@
   "main": "ib-convert.js",
   "scripts": {
     "convert": "node ./ib-convert.js",
+    "convert-all": "for f in $(find ./doc-src/html -name \"*.html\"); do node ./ib-convert.js $f; done",
     "original": "cat sample-saved-as-web-page.html",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -12,6 +13,7 @@
   "license": "MIT",
   "dependencies": {
     "htmldom2": "0.0.7",
+    "node-getopt": "^0.3.2",
     "pretty": "^2.0.0",
     "xpath": "0.0.27"
   }
