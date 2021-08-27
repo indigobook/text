@@ -108,7 +108,7 @@ function Walker (inputFile) {
     this.doc = res.doc;
     this.body = xpath.select("//body", this.doc)[0];
     this.newdoc = new dom().parseFromString(template, "text/html");
-    this.newbody = xpath.select("//body", newdoc)[0];
+    this.newbody = xpath.select("//body", this.newdoc)[0];
 
     this.citePos = 1;
     this.listType = "ul";
@@ -232,7 +232,7 @@ Walker.prototype.run = function() {
     var output = pretty((new serializer()).serializeToString(this.newdoc));
     output = `<!DOCTYPE html>
 ${output}`;
-    fs.writeFileSync(`${buildPath(fileStub)}`, output);
+    fs.writeFileSync(`${buildPath(this.fileName)}`, output);
     // console.log(pretty((new serializer()).serializeToString(this.newdoc)))
     console.log("  Generated files are under ./docs");
 }
