@@ -188,10 +188,11 @@ function Walker (inputFile) {
 }
 
 Walker.prototype.getNodeType = function(node) {
+    if (!node) return "EMPTY";
     return this.processTypes[node.nodeType];
 }
 
-Walker.prototype.run = function() {
+Walker.prototype.run = function(returnDOM) {
     // Purge p nodes that produce no meaningful output.
     // This is necessary to avoid confusion in read-ahead
     // handling of Inklings
@@ -218,7 +219,7 @@ Walker.prototype.run = function() {
     // as per current state of play.
     //
     // Cleanup
-    var tagList = ["p", "b", "i", "blockquote"];
+    var tagList = ["p", "b", "i", "blockquote", "h1", "h2", "h3", "h4", "h5", "a"];
     for (var tagName of tagList) {
         var elems = this.newdoc.getElementsByTagName(tagName);
         for (var i=elems.length-1; i>-1; i--) {
@@ -229,12 +230,16 @@ Walker.prototype.run = function() {
             }
         }
     }
-    var output = pretty((new serializer()).serializeToString(this.newdoc));
-    output = `<!DOCTYPE html>
+    if (returnDOM) {
+        return this.newdoc;
+    } else {
+        var output = pretty((new serializer()).serializeToString(this.newdoc));
+        output = `<!DOCTYPE html>
 ${output}`;
-    fs.writeFileSync(`${buildPath(this.fileName)}`, output);
-    // console.log(pretty((new serializer()).serializeToString(this.newdoc)))
-    console.log("  Generated files are under ./docs");
+        fs.writeFileSync(`${buildPath(this.fileName)}`, output);
+        // console.log(pretty((new serializer()).serializeToString(this.newdoc)))
+        console.log("  Generated files are under ./docs");
+    }
 }
 
 Walker.prototype.padding = function(num) {
@@ -544,7 +549,7 @@ Walker.prototype.openInklingBoxNode = function(inputNode) {
     while (this.getNodeType(nextNode) === "text") {
         nextNode = nextNode.nextSibling;
     }
-    if (!nextNode.getAttribute("class") || nextNode.getAttribute("class") !== "Inkling") {
+    if (!nextNode || !nextNode.getAttribute("class") || nextNode.getAttribute("class") !== "Inkling") {
         // Close node AND box if we hit a non-inkling at the same nesting level
         this.dropTarget();
         this.dropTarget();
@@ -574,7 +579,7 @@ Walker.prototype.appendInklingNode = function(inputNode) {
     while (this.getNodeType(nextNode) === "text") {
         nextNode = nextNode.nextSibling;
     }
-    if (!nextNode.getAttribute("class") || nextNode.getAttribute("class") !== "Inkling") {
+    if (!nextNode || !nextNode.getAttribute("class") || nextNode.getAttribute("class") !== "Inkling") {
         // Close node AND box if we hit a non-inkling at the same nesting level
         this.dropTarget();
         this.dropTarget();
@@ -603,7 +608,7 @@ Walker.prototype.getNextNonEmptyElementSibling = function(node) {
 Walker.prototype.fixNodeAndAppend = function(node) {
     var ret = null;
     var tn = node.tagName;
-    var m = tn.match(/(table|thead|tbody|span|h[0-9]|sup|p|tr|td|ul|ol|i|li|b)/);
+    var m = tn.match(/(table|thead|tbody|span|h[0-9]|sup|tr|td|ul|ol|li|p|i|b|a)/);
     if (m) {
 	    if (m[1] === "p") {
 	        ret = this.newdoc.createElement("p");
@@ -839,7 +844,7 @@ if (require.main === module) {
     ])
         .bindHelp()
         .parseSystem();
-    if (!opt.argv[0] || opt.argv[0].slice(-5) === ".html") {
+    if (!opt.argv[0] || opt.argv[0].slice(-5) !== ".html") {
         var err = new Error("Run this script with an HTML source file as argument");
         console.log(err.message);
         process.exit();
