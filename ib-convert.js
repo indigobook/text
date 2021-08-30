@@ -68,6 +68,29 @@ var template = `
     <meta charset="utf-8" />
     <title>Sample Output: Indigo Book</title>
     <style>
+      body {
+          font-family:Libre Baskerville, Georgia, serif;
+          font-size:12pt;
+          line-height:18pt;
+      }
+      h3 {
+          padding-bottom: 5px;
+          margin-bottom: 0px;
+          text-indent: 0px;
+      }
+      p {
+          text-align: left;
+          margin: 0;
+          direction: ltr;
+          padding-bottom: 9px;
+          color: #000;
+          text-indent: 0;
+      }
+      a {
+          font-style: normal;
+          font-weight: normal;
+          color: #900;
+      }
       .inkling-box {
           border: 1px solid black;
           padding-left: 1em;
@@ -93,6 +116,32 @@ var template = `
       td.grey-box {
           background:#D0CECE;
       }
+      p.title-block {
+        margin-top:auto;
+        margin-bottom:auto;
+        text-align:center;
+        line-height:32.0pt;
+        outline-level:1;
+        background:#442327;
+        vertical-align:middle;
+      }
+      p.title-block.first {
+        padding-top:20pt;
+      }
+      p.title-block.subtitle {
+        line-height:18.0pt;
+      }
+      h2 {
+         font-size:16.0pt;
+         font-family:"Georgia",serif;
+         color:#990000;
+      }
+      h2.link-note {
+         font-family:"Calibri",sans-serif;
+         font-weight:normal;
+         font-size:13pt;
+         color:#2F5496;
+      }
     </style>
   </head>
   <body></body>
@@ -116,6 +165,7 @@ function Walker (inputFile) {
     this.insideInkling = false;
     this.listLevel = null;
     this.listID = null;
+    this.inTitle = false;
     
     // Only these node types are of interest
     this.processTypes = {
@@ -608,7 +658,7 @@ Walker.prototype.getNextNonEmptyElementSibling = function(node) {
 Walker.prototype.fixNodeAndAppend = function(node) {
     var ret = null;
     var tn = node.tagName;
-    var m = tn.match(/(table|thead|tbody|span|h[0-9]|sup|tr|td|ul|ol|li|p|i|b|a)/);
+    var m = tn.match(/(table|thead|tbody|span|h[0-9]|sup|tr|td|ul|ol|li|br|p|i|b|a)/);
     if (m) {
 	    if (m[1] === "p") {
 	        ret = this.newdoc.createElement("p");
@@ -663,6 +713,22 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 this.dropTarget();
                 this.listLevel = 0;
             } else {
+                var align = node.getAttribute("align");
+                if (align === "center") {
+                    if (style.indexOf("mso-line-height-alt") > -1) {
+                        if (this.inTitle) {
+                            ret.setAttribute("class", "title-block");
+                        } else {
+                            ret.setAttribute("class", "title-block first");
+                        }
+                    } else {
+                        ret.setAttribute("class", "title-block subtitle");
+                    }
+                    this.inTitle = true;
+                    ret.setAttribute("align", "center");
+                } else {
+                    this.inTitle = false;
+                }
                 if (node.childNodes.length > 0) {
                     this.appendOrdinaryNode(node, ret);
                 }
@@ -672,7 +738,10 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             var dataInfo = node.getAttribute("data-info");
 	        var style = node.getAttribute("style");
             // console.log(`${cls} / ${dataInfo} / ${style}`)
-            if (style && style.match("small-caps")) {
+            if (style && this.inTitle) {
+                ret = this.newdoc.createElement("span");
+                ret.setAttribute("style", style);
+            } else if (style && style.match("small-caps")) {
         	    ret = this.newdoc.createElement("span");
 		        ret.setAttribute("class", "small-caps");
             } else if (cls && cls.match("cite") && dataInfo) {
@@ -699,7 +768,19 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             if (style && style.match(/background:#D0CECE;/)) {
                 ret.setAttribute("class", "grey-box");
             }
-            this.appendOrdinaryNode(node, ret)
+            this.appendOrdinaryNode(node, ret);
+        } else if (m[1] === "h2") {
+            ret = this.newdoc.createElement("h2");
+            if (node.textContent === "Skip Links") {
+                ret.setAttribute("class", "link-note");
+            }
+            this.appendOrdinaryNode(node, ret);
+        } else if (m[1] === "a") {
+            ret = this.newdoc.createElement("a");
+            var href = node.getAttribute("href");
+            ret.setAttribute("href", href);
+            this.appendOrdinaryNode(node, ret);
+            
         } else {
 	        ret = this.newdoc.createElement(tn);
             this.appendOrdinaryNode(node, ret)
@@ -786,7 +867,7 @@ Walker.prototype.processInputTree = function(node) {
 	    var style = node.getAttribute("style");
 	    if (style && style.match(/mso-list:Ignore/)) return;
         // No singletons. What about BR and HR?
-	    if (node.childNodes.length > 0) {
+	    if (node.tagName === "br" | node.childNodes.length > 0) {
 	        this.fixNodeAndAppend(node);
 	    }
     } else if (type === "comment") {
