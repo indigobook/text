@@ -242,6 +242,16 @@ Walker.prototype.getNodeType = function(node) {
     return this.processTypes[node.nodeType];
 }
 
+Walker.prototype.fixEntities = function(output) {
+    output = output.replace(/&amp;#8217;/g, "\u2019")
+        .replace(/&amp;#8211;/g, "\u2013")
+        .replace(/&amp;#8220;/g, "\u201C")
+        .replace(/&amp;#8221;/g, "\u201D")
+        .replace(/&amp;#8212;/g, "\u2014")
+        .replace(/&amp;#8658;/g, "\u21D2");
+    return output
+}
+
 Walker.prototype.run = function(returnDOM) {
     // Purge p nodes that produce no meaningful output.
     // This is necessary to avoid confusion in read-ahead
@@ -284,6 +294,7 @@ Walker.prototype.run = function(returnDOM) {
         return this.newdoc;
     } else {
         var output = pretty((new serializer()).serializeToString(this.newdoc));
+        output = this.fixEntities(output);
         output = `<!DOCTYPE html>
 ${output}`;
         fs.writeFileSync(`${buildPath(this.fileName)}`, output);

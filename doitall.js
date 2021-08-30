@@ -49,6 +49,7 @@ for (var fn of filenames) {
     }
 }
 var output = pretty((new serializer()).serializeToString(outputDOM));
+output = walker.fixEntities(output);
 output = `<!DOCTYPE html>
 ${output}`;
 fs.writeFileSync(`${buildPath("index.html")}`, output);
