@@ -73,10 +73,35 @@ var template = `
           font-size:12pt;
           line-height:18pt;
       }
+      h2 {
+          color: #990000;
+          font-size: 16pt;
+          line-height: 18pt;
+          margin-top: 22px;
+          font-family: 'Libre Baskerville', Georgia, serif;
+          padding-bottom: 5px;
+          margin-bottom: 0px;
+          text-indent: 0px;
+      }
       h3 {
           padding-bottom: 5px;
           margin-bottom: 0px;
           text-indent: 0px;
+      }
+      h4 {
+          text-indent: 0;
+          font-size: 14pt;
+          margin-bottom: 12px;
+      }
+      h5 {
+          margin-top:0px;
+          text-indent: 0;
+          font-size: 12pt;
+          margin-bottom: 10px;
+      }
+      h5 span.wide-space {
+          width: 1em;
+          display:inline-block;
       }
       p {
           text-align: left;
@@ -115,6 +140,10 @@ var template = `
       }
       td.grey-box {
           background:#D0CECE;
+      }
+      tbody td.multicol {
+          background: #fffcc5;
+          border: 2px solid #888;
       }
       p.title-block {
         margin-top:auto;
@@ -248,6 +277,9 @@ Walker.prototype.fixEntities = function(output) {
         .replace(/&amp;#8220;/g, "\u201C")
         .replace(/&amp;#8221;/g, "\u201D")
         .replace(/&amp;#8212;/g, "\u2014")
+        .replace(/&amp;#8212;/g, "\u2014")
+        .replace(/&amp;sect;/g, "\u00A7")
+        .replace(/&amp;para;/g, "\u00B6")
         .replace(/&amp;#8658;/g, "\u21D2");
     return output
 }
@@ -774,6 +806,25 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             var rowspan = node.getAttribute("rowspan")
             if (rowspan) {
                 ret.setAttribute("rowspan", rowspan);
+            }
+            var colspan = node.getAttribute("colspan")
+            if (colspan) {
+                ret.setAttribute("colspan", colspan);
+                // Check for any non-whitespace text to which boldface is not applied.
+                var copyOfNode = node.cloneNode(true);
+                var boldtext = copyOfNode.getElementsByTagName("b")[0];
+                if (boldtext) {
+                    boldtext.parentNode.removeChild(boldtext);
+                    var strippedContent = copyOfNode.textContent.trim();
+                    if (strippedContent) {
+                        if (strippedContent.indexOf("readily") > -1) {
+                            console.log(strippedContent);
+                        }
+                        ret.setAttribute("class", "multicol");
+                    }
+                } else {
+                    ret.setAttribute("class", "multicol");
+                }
             }
             var style = node.getAttribute("style");
             if (style && style.match(/background:#D0CECE;/)) {
