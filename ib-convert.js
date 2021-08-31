@@ -817,9 +817,6 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                     boldtext.parentNode.removeChild(boldtext);
                     var strippedContent = copyOfNode.textContent.trim();
                     if (strippedContent) {
-                        if (strippedContent.indexOf("readily") > -1) {
-                            console.log(strippedContent);
-                        }
                         ret.setAttribute("class", "multicol");
                     }
                 } else {
@@ -929,7 +926,7 @@ Walker.prototype.processInputTree = function(node) {
 	    var style = node.getAttribute("style");
 	    if (style && style.match(/mso-list:Ignore/)) return;
         // No singletons. What about BR and HR?
-	    if (node.tagName === "br" | node.childNodes.length > 0) {
+	    if (node.tagName === "br" | node.tagName === "td" | node.childNodes.length > 0) {
 	        this.fixNodeAndAppend(node);
 	    }
     } else if (type === "comment") {
