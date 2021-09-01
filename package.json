@@ -15,6 +15,7 @@
     "htmldom2": "0.0.7",
     "node-getopt": "^0.3.2",
     "pretty": "^2.0.0",
+    "slugify": "^1.6.0",
     "xpath": "0.0.27"
   }
 }
