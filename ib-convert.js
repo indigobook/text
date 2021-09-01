@@ -5,6 +5,7 @@ const dom = require("htmldom2").DOMParser;
 const serializer = require("htmldom2").XMLSerializer;
 const xpath = require("xpath");
 const pretty = require('pretty');
+const slugify = require('slugify');
 
 /*
  * Paths
@@ -195,6 +196,8 @@ function Walker (inputFile) {
     this.listLevel = null;
     this.listID = null;
     this.inTitle = false;
+    this.inHeading = false;
+    this.targetMatchCount = 0;
     
     // Only these node types are of interest
     this.processTypes = {
@@ -266,6 +269,13 @@ function Walker (inputFile) {
     this.reverseSignalRex = new RegExp(`(${Object.keys(this.reverseSignalMap).join("|")})`);
 }
 
+Walker.prototype.slugify = function(str) {
+    str = str.replace(/&amp;/g, " ");
+    return slugify(str, {
+        lower:true
+    })
+}
+
 Walker.prototype.getNodeType = function(node) {
     if (!node) return "EMPTY";
     return this.processTypes[node.nodeType];
@@ -322,6 +332,7 @@ Walker.prototype.run = function(returnDOM) {
             }
         }
     }
+    console.log(`targetMatchCount: ${this.targetMatchCount}`);
     if (returnDOM) {
         return this.newdoc;
     } else {
@@ -730,7 +741,7 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 this.appendClosingListNode(node, listInfo.level);
                 this.listLevel = listInfo.level-1;
 	        } else if (cls === "MsoListParagraph" && listInfo.level) {
-                console.log("ONE-OFF LIST BULLET");
+                //console.log("ONE-OFF LIST BULLET");
                 // List formatting in Word HTML output is awful
                 this.appendSoloListNode(node, listInfo.level);
 	        } else if (cls === "Body" && !this.listLevel && listInfo.level) {
@@ -828,18 +839,29 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 ret.setAttribute("class", "grey-box");
             }
             this.appendOrdinaryNode(node, ret);
-        } else if (m[1] === "h2") {
-            ret = this.newdoc.createElement("h2");
+        } else if (["h2", "h3", "h4", "h5"].indexOf(m[1]) > -1) {
+            ret = this.newdoc.createElement(tn);
             if (node.textContent === "Skip Links") {
                 ret.setAttribute("class", "link-note");
             }
+            var str = node.textContent;
+            var m = str.match(/([A-Z]\.\ .*|R[.0-9]+)/);
+            if (m) {
+                str = m[1].replace(/^([A-Z])\./, "$1");
+                ret.setAttribute("id", this.slugify(str));
+            }
+            this.inHeading = true;
             this.appendOrdinaryNode(node, ret);
+            this.inHeading = false;
         } else if (m[1] === "a") {
-            ret = this.newdoc.createElement("a");
             var href = node.getAttribute("href");
-            ret.setAttribute("href", href);
+            if (href) {
+                ret = this.newdoc.createElement("a");
+                ret.setAttribute("href", href);
+            } else {
+                ret = false;
+            }
             this.appendOrdinaryNode(node, ret);
-            
         } else {
 	        ret = this.newdoc.createElement(tn);
             this.appendOrdinaryNode(node, ret)
@@ -920,8 +942,32 @@ Walker.prototype.processInputTree = function(node) {
         content = content.replace(/&gt;/g, ">");
         content = content.replace(/&lt;/g, "<");
         content = content.replace(/&quot;/g, '"');
-	    var newnode = this.newdoc.createTextNode(content);
-	    this.getTarget().appendChild(newnode);
+        
+        // Create anchors for Rule and Table internal cross-references
+        
+        var newnode;
+        if (!this.inHeading) {
+            content = content.split("\n").join(" ").split("\r").join("");
+            var lst = content.split(/((?:Table|Rule)*\s(?:[TR][0-9](?:[.0-9]*[0-9])*))/);
+            this.targetMatchCount = this.targetMatchCount + ((lst.length - 1) / 2);
+            for (var i=0,ilen=lst.length;i<ilen;i++) {
+                var str = lst[i];
+                if (!str) continue;
+                if (i%2 === 0) {
+	                newnode = this.newdoc.createTextNode(str);
+                } else if (i%2 === 1) {
+                    var slug = this.slugify(str.replace(/^(?:Table|Rule)\s/, ""));
+                    newnode = this.newdoc.createElement("a");
+                    newnode.setAttribute("href", `#${slug}`);
+                    var strNode = this.newdoc.createTextNode(str);
+                    newnode.appendChild(strNode);
+                }
+                this.getTarget().appendChild(newnode);
+            }
+        } else {
+	        newnode = this.newdoc.createTextNode(content);
+	        this.getTarget().appendChild(newnode);
+        }
     } else if (type === "node") {
 	    var style = node.getAttribute("style");
 	    if (style && style.match(/mso-list:Ignore/)) return;
