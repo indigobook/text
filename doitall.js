@@ -50,6 +50,8 @@ for (var fn of filenames) {
     }
 }
 
+console.log("Generating table of contents");
+
 walker.setTOC(outputDOM);
 
 var output = pretty((new serializer()).serializeToString(outputDOM));
