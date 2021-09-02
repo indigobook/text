@@ -1,0 +1,14 @@
+# URLs
+
+The file URLS.txt contains a list of all external URLs linked in the
+document. Two issues relating to these links need to be addressed.
+
+1. The list should be checked against the document, and those URLs
+   that appear in citation examples should be set in a quash-list
+   for special formatting. Whether that will be plain-text rendering
+   or a "phantom" link to the content is TBD pending a query to
+   Jennifer Romig as editor.
+
+2. The links need to be checked for currency. Some are broken,
+   or offer only restricted access.
+   
