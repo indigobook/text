@@ -73,16 +73,22 @@ var template = `
           font-family:Libre Baskerville, Georgia, serif;
           font-size:12pt;
           line-height:18pt;
+          widows: 2;
       }
       h2 {
           color: #990000;
           font-size: 16pt;
           line-height: 18pt;
           margin-top: 22px;
-          font-family: 'Libre Baskerville', Georgia, serif;
           padding-bottom: 5px;
           margin-bottom: 0px;
           text-indent: 0px;
+      }
+      h2.link-note {
+         font-family:"Calibri",sans-serif;
+         font-weight:normal;
+         font-size:13pt;
+         color:#2F5496;
       }
       h3 {
           padding-bottom: 5px;
@@ -112,6 +118,23 @@ var template = `
           color: #000;
           text-indent: 0;
       }
+      p.no-break-after {
+          page-break-after: avoid !important;
+      }
+      p.title-block {
+        margin-top:auto;
+        margin-bottom:auto;
+        text-align:center;
+        line-height:32.0pt;
+        background:#442327;
+        vertical-align:middle;
+      }
+      p.title-block.first {
+        padding-top:20pt;
+      }
+      p.title-block.subtitle {
+        line-height:18.0pt;
+      }
       a {
           font-style: normal;
           font-weight: normal;
@@ -121,9 +144,11 @@ var template = `
           border: 1px solid black;
           padding-left: 1em;
           padding-right: 1em;
+          margin-bottom: 12px;
       }
       .inkling-title {
           font-variant: small-caps;
+          page-break-after: avoid;
       }
       .cite:hover {
           background: #eeeeee;
@@ -142,36 +167,12 @@ var template = `
       td.grey-box {
           background:#D0CECE;
       }
+      /*
       tbody td.multicol {
           background: #fffcc5;
           border: 2px solid #888;
       }
-      p.title-block {
-        margin-top:auto;
-        margin-bottom:auto;
-        text-align:center;
-        line-height:32.0pt;
-        outline-level:1;
-        background:#442327;
-        vertical-align:middle;
-      }
-      p.title-block.first {
-        padding-top:20pt;
-      }
-      p.title-block.subtitle {
-        line-height:18.0pt;
-      }
-      h2 {
-         font-size:16.0pt;
-         font-family:"Georgia",serif;
-         color:#990000;
-      }
-      h2.link-note {
-         font-family:"Calibri",sans-serif;
-         font-weight:normal;
-         font-size:13pt;
-         color:#2F5496;
-      }
+      */
     </style>
   </head>
   <body></body>
@@ -198,6 +199,7 @@ function Walker (inputFile) {
     this.inTitle = false;
     this.inHeading = false;
     this.targetMatchCount = 0;
+    
     
     // Only these node types are of interest
     this.processTypes = {
@@ -420,8 +422,15 @@ Walker.prototype.appendOrdinaryNode = function(inputNode, outputNode) {
     // into their children, if any.
     if (outputNode !== null) {
         if (outputNode) {
+            var noBreakAfter = false;
             if (this.getIndent(inputNode)) {
+                if (outputNode.getAttribute("class") === "no-break-after") {
+                    noBreakAfter = true;
+                }
                 outputNode = this.newdoc.createElement("blockquote");
+                if (noBreakAfter) {
+                    outputNode.setAttribute("class", "no-break-after");
+                }
             }
             this.addTarget(outputNode);
         }
@@ -782,6 +791,9 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                     ret.setAttribute("align", "center");
                 } else {
                     this.inTitle = false;
+                    if (node.textContent.match(/^\s*Examples?:?\s*(&nbsp;| )*$/)) {
+                        ret.setAttribute("class", "no-break-after");
+                    }
                 }
                 if (node.childNodes.length > 0) {
                     this.appendOrdinaryNode(node, ret);
@@ -845,7 +857,7 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 ret.setAttribute("class", "link-note");
             }
             var str = node.textContent;
-            var m = str.match(/([A-Z]\.\ .*|R[.0-9]+)/);
+            var m = str.match(/([A-Z]\.\ .*|[TR][0-9]([.0-9]*[0-9])*)/);
             if (m) {
                 str = m[1].replace(/^([A-Z])\./, "$1");
                 ret.setAttribute("id", this.slugify(str));
