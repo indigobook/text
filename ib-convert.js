@@ -207,6 +207,9 @@ var template = `
       td.grey-box {
           background:#D0CECE;
       }
+      .small-caps {
+          font-variant: small-caps;
+      }
       /*
       tbody td.multicol {
           background: #fffcc5;
@@ -239,6 +242,7 @@ function Walker (inputFile) {
     this.inTitle = false;
     this.inHeading = false;
     this.targetMatchCount = 0;
+    this.inAnchor = false;
     
     
     // Only these node types are of interest
@@ -317,9 +321,6 @@ Walker.prototype.slugify = function(str) {
     str = str.replace(/&amp;/g, "and");
     str = str.replace(/&nbsp;/g, " ");
     str = str.replace(/\s\s+/g, " ");
-    if (str.slice(0, 5) === "R1241") {
-        console.log(str);
-    }
     return slugify(str, {
         lower:true
     })
@@ -381,7 +382,7 @@ Walker.prototype.run = function(returnDOM) {
             }
         }
     }
-    console.log(`targetMatchCount: ${this.targetMatchCount}`);
+    // console.log(`targetMatchCount: ${this.targetMatchCount}`);
     if (returnDOM) {
         return this.newdoc;
     } else {
@@ -782,17 +783,17 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 // Sniffs ahead to close the box
                 this.appendInklingNode(node);
             } else if (cls === "MsoListParagraphCxSpFirst" && listInfo.level) {
-                console.log("OPEN (a)");
+                //console.log("OPEN (a)");
                 // List formatting in Word HTML output is awful
                 this.appendOpeningListNode(node, listInfo.level);
                 this.listLevel = listInfo.level;
             } else if (cls === "MsoListParagraphCxSpMiddle" && listInfo.level) {
-                console.log("   MIDDLE (a)");
+                //console.log("   MIDDLE (a)");
                 // List formatting in Word HTML output is awful
                 this.appendMiddleListNode(node, listInfo.level);
                 this.listLevel = listInfo.level;
             } else if (cls === "MsoListParagraphCxSpLast" && listInfo.level) {
-                console.log("CLOSE(a)");
+                //console.log("CLOSE(a)");
                 // List formatting in Word HTML output is awful
                 this.appendClosingListNode(node, listInfo.level);
                 this.listLevel = listInfo.level-1;
@@ -801,23 +802,23 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 // List formatting in Word HTML output is awful
                 this.appendSoloListNode(node, listInfo.level);
             } else if (cls === "Body" && !this.listLevel && listInfo.level) {
-                console.log(`OPEN (b)`);
+                //console.log(`OPEN (b)`);
                 // List formatting in Word HTML output is awful
                 this.appendOpeningListNode(node, listInfo.level);
                 this.listLevel = listInfo.level;
             } else if (cls === "Body" && listInfo.nextElementSiblingIsList && listInfo.level) {
                 // List formatting in Word HTML output is awful
-                console.log("  MIDDLE (b)");
+                //console.log("  MIDDLE (b)");
                 this.appendMiddleListNode(node, listInfo.level);
                 this.listLevel = listInfo.level;
             } else if (cls === "Body" && !listInfo.nextElementSiblingIsList && listInfo.level) {
                 // List formatting in Word HTML output is awful
-                console.log("CLOSE (b)");
+                //console.log("CLOSE (b)");
                 this.appendClosingListNode(node, listInfo.level);
                 this.listLevel = listInfo.level-1;
             } else if (this.listLevel && !this.getIndent(node)) {
                 // Close any list node that might be open when we hit this?
-                console.log("CLOSE (b')");
+                //console.log("CLOSE (b')");
                 // this.appendClosingListNode(node, listInfo.level);
                 this.dropTarget();
                 this.dropTarget();
@@ -854,9 +855,6 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             if (style && this.inTitle) {
                 ret = this.newdoc.createElement("span");
                 ret.setAttribute("style", style);
-            } else if (style && style.match("small-caps")) {
-                ret = this.newdoc.createElement("span");
-                ret.setAttribute("class", "small-caps");
             } else if (cls && cls.match("cite") && dataInfo) {
                 ret = this.newdoc.createElement(tn);
                 ret.setAttribute("class", "cite");
@@ -866,6 +864,9 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 ret.setAttribute("class", "wide-space");
                 var space = this.newdoc.createTextNode(" ");
                 ret.appendChild(space);
+            } else if (style && style.match("small-caps")) {
+                ret = this.newdoc.createElement("span");
+                ret.setAttribute("class", "small-caps");
             } else {
                 ret = false;
             }
@@ -906,9 +907,6 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             var str = node.textContent.split("\n").join(" ").split("\r").join("");
             var m = str.match(/([A-Z]\.\ .*|[TR][0-9]([.0-9]*[0-9])*)/);
             if (m) {
-                if (str.slice(0, 1) === "C") {
-                    console.log(`heading ID slug: ${str}`);
-                }
                 ret.setAttribute("id", this.slugify(str));
             }
 
@@ -923,11 +921,10 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             } else {
                 ret = false;
             }
+            this.inAnchor = true;
             this.appendOrdinaryNode(node, ret);
+            this.inAnchor = false;
         } else {
-            if (tn === "ol") {
-                console.log(`ID: ${node.getAttribute("id")}`);
-            }
             ret = this.newdoc.createElement(tn);
             this.appendOrdinaryNode(node, ret)
         }
@@ -1011,7 +1008,7 @@ Walker.prototype.processInputTree = function(node) {
         // Create anchors for Rule and Table internal cross-references
         
         var newnode;
-        if (!this.inHeading) {
+        if (!this.inHeading && !this.inAnchor) {
             content = content.split("\n").join(" ").split("\r").join("");
             var lst = content.split(/((?:Table|Rule)*\s(?:[TR][0-9](?:[.0-9]*[0-9])*))/);
             this.targetMatchCount = this.targetMatchCount + ((lst.length - 1) / 2);
@@ -1067,6 +1064,9 @@ Walker.prototype.processInputTree = function(node) {
 }
 
 Walker.prototype.buildTOC = function(doc, node, toc) {
+    //if (node.tagName === "a" && node.getAttribute("href") && node.getAttribute("href").match(/^https?:\/\//)) {
+    //    console.log(node.getAttribute("href"));
+    //}
     if (["h2", "h3", "h4", "h5"].indexOf(node.tagName) > -1) {
         this.tocEntryCount++;
         if (this.tocEntryCount > this.tocOffset) {
