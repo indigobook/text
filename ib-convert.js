@@ -69,11 +69,52 @@ var template = `
     <meta charset="utf-8" />
     <title>Sample Output: Indigo Book</title>
     <style>
+      @page {
+          border: 0; margin-left: .75in;
+          margin-right: .75in;
+          margin-top: .75in;
+          margin-bottom: .75in;
+          widows:2;
+      }
+      @page :left {
+          @top-left {
+              content: 'The Indigo Book';
+              font-family: 'Libre Baskerville', Georgia, serif;
+              font-style: italic;
+          }
+          @bottom-left {
+              content: counter(page);
+              font-family: 'Libre Baskerville', Georgia, serif;
+              font-style: italic;
+          }
+      } 
+      @page :right {
+          @top-right {
+              content: string(title);
+              font-family: 'Libre Baskerville', Georgia, serif;
+              font-style: italic;
+          }
+          @bottom-right {
+              content: counter(page);
+              font-family: 'Libre Baskerville', Georgia, serif;
+              font-style: italic;
+          }
+      }
+      #toc li { list-style-type: none }
+      #toc a:after {
+          content: leader('.') target-counter(attr(href), page);
+      }
+      #toc li a.h3 { margin-left: 2em; }
+      #toc li a.h4 { margin-left: 4em; }
+      #toc li a.h5 { margin-left: 6em; }
+      h2 { break-before: page }
       body {
-          font-family:Libre Baskerville, Georgia, serif;
+          font-family:'Libre Baskerville', Georgia, serif;
           font-size:12pt;
           line-height:18pt;
-          widows: 2;
+      }
+      p.no-break-after {
+          page-break-after: avoid;
       }
       h2 {
           color: #990000;
@@ -83,12 +124,14 @@ var template = `
           padding-bottom: 5px;
           margin-bottom: 0px;
           text-indent: 0px;
+          string-set: title contents;
       }
       h2.link-note {
          font-family:"Calibri",sans-serif;
          font-weight:normal;
          font-size:13pt;
          color:#2F5496;
+         string-set: none
       }
       h3 {
           padding-bottom: 5px;
@@ -117,9 +160,6 @@ var template = `
           padding-bottom: 9px;
           color: #000;
           text-indent: 0;
-      }
-      p.no-break-after {
-          page-break-after: avoid !important;
       }
       p.title-block {
         margin-top:auto;
@@ -272,7 +312,14 @@ function Walker (inputFile) {
 }
 
 Walker.prototype.slugify = function(str) {
-    str = str.replace(/&amp;/g, " ");
+    str = str.trim();
+    str = str.replace(/\./g, "");
+    str = str.replace(/&amp;/g, "and");
+    str = str.replace(/&nbsp;/g, " ");
+    str = str.replace(/\s\s+/g, " ");
+    if (str.slice(0, 5) === "R1241") {
+        console.log(str);
+    }
     return slugify(str, {
         lower:true
     })
@@ -434,11 +481,11 @@ Walker.prototype.appendOrdinaryNode = function(inputNode, outputNode) {
             }
             this.addTarget(outputNode);
         }
-	    for(var i=0; i<inputNode.childNodes.length; i++) {
+        for(var i=0; i<inputNode.childNodes.length; i++) {
             var child = inputNode.childNodes[i];
             // console.log(`   child: ${child.textContent}`);
-		    this.processInputTree(child);
-	    }
+            this.processInputTree(child);
+        }
         if (outputNode) {
             this.dropTarget();
         }
@@ -539,16 +586,16 @@ Walker.prototype.appendSoloListNode = function(inputNode, newListLevel) {
     // 1. noop
     // 2. noop
     // 3. Open list environment and set initial LI
-	var olul = this.newdoc.createElement(this.listType);
+    var olul = this.newdoc.createElement(this.listType);
     this.addTarget(olul);
-	var li = this.newdoc.createElement("li");
+    var li = this.newdoc.createElement("li");
     this.addTarget(li);
     // 4. noop
     // 5. Text children
-	for(var i=0; i<inputNode.childNodes.length; i++) {
+    for(var i=0; i<inputNode.childNodes.length; i++) {
         var child = inputNode.childNodes[i];
-		this.processInputTree(child);
-	}
+        this.processInputTree(child);
+    }
     this.dropTarget();
     this.dropTarget();
 }
@@ -558,16 +605,16 @@ Walker.prototype.appendOpeningListNode = function(inputNode, newListLevel) {
     // 1. noop
     // 2. noop
     // 3. Open list environment and set initial LI
-	var olul = this.newdoc.createElement(this.listType);
+    var olul = this.newdoc.createElement(this.listType);
     this.addTarget(olul);
-	var li = this.newdoc.createElement("li");
+    var li = this.newdoc.createElement("li");
     this.addTarget(li);
     // 4. noop
     // 5. Text children
-	for(var i=0; i<inputNode.childNodes.length; i++) {
+    for(var i=0; i<inputNode.childNodes.length; i++) {
         var child = inputNode.childNodes[i];
-		this.processInputTree(child);
-	}
+        this.processInputTree(child);
+    }
 }
 
 Walker.prototype.appendMiddleListNode = function(inputNode, newListLevel) {
@@ -585,10 +632,10 @@ Walker.prototype.appendMiddleListNode = function(inputNode, newListLevel) {
     // 4. Open list levels if appropriate
     this.deepenNestingLevel(newListLevel);
     // 5. Process text for this node
-	for(var i=0; i<inputNode.childNodes.length; i++) {
+    for(var i=0; i<inputNode.childNodes.length; i++) {
         var child = inputNode.childNodes[i];
-		this.processInputTree(child);
-	}
+        this.processInputTree(child);
+    }
 }
 
 Walker.prototype.appendClosingListNode = function(inputNode) {
@@ -625,9 +672,9 @@ Walker.prototype.deepenNestingLevel = function(newListLevel, justLooking) {
         ret = true;
         if (!justLooking) {
             while (newListLevel > this.listLevel) {
-	            var olul = this.newdoc.createElement(this.listType);
+                var olul = this.newdoc.createElement(this.listType);
                 this.addTarget(olul);
-	            var li = this.newdoc.createElement("li");
+                var li = this.newdoc.createElement("li");
                 this.addTarget(li);
                 newListLevel--;
             }
@@ -652,11 +699,11 @@ Walker.prototype.openInklingBoxNode = function(inputNode) {
     inklingTitle.setAttribute("class", "inkling-title");
     inklingBox.appendChild(inklingTitle);
     this.addTarget(inklingTitle);
-	    for(var i=0; i<inputNode.childNodes.length; i++) {
+        for(var i=0; i<inputNode.childNodes.length; i++) {
             var child = inputNode.childNodes[i];
             // console.log(`   child: ${child.textContent}`);
-		    this.processInputTree(child);
-	    }
+            this.processInputTree(child);
+        }
     
     var nextNode = inputNode.nextSibling;
     while (this.getNodeType(nextNode) === "text") {
@@ -682,11 +729,11 @@ Walker.prototype.appendInklingNode = function(inputNode) {
     inkling.setAttribute("class", "inkling");
     this.addTarget(inkling);
     
-	    for(var i=0; i<inputNode.childNodes.length; i++) {
+        for(var i=0; i<inputNode.childNodes.length; i++) {
             var child = inputNode.childNodes[i];
             // console.log(`   child: ${child.textContent}`);
-		    this.processInputTree(child);
-	    }
+            this.processInputTree(child);
+        }
 
     var nextNode = inputNode.nextSibling;
     while (this.getNodeType(nextNode) === "text") {
@@ -723,47 +770,47 @@ Walker.prototype.fixNodeAndAppend = function(node) {
     var tn = node.tagName;
     var m = tn.match(/(table|thead|tbody|span|h[0-9]|sup|tr|td|ul|ol|li|br|p|i|b|a)/);
     if (m) {
-	    if (m[1] === "p") {
-	        ret = this.newdoc.createElement("p");
-	        var cls = node.getAttribute("class");
+        if (m[1] === "p") {
+            ret = this.newdoc.createElement("p");
+            var cls = node.getAttribute("class");
             var style = node.getAttribute("style");
             var listInfo = this.getListInfo(node);
-	        if (cls === "InklingTitle") {
+            if (cls === "InklingTitle") {
                 // Encloses Inkling Title and its siblings in a nice box
                 this.openInklingBoxNode(node);
-	        } else if (cls === "Inkling") {
+            } else if (cls === "Inkling") {
                 // Sniffs ahead to close the box
                 this.appendInklingNode(node);
-	        } else if (cls === "MsoListParagraphCxSpFirst" && listInfo.level) {
+            } else if (cls === "MsoListParagraphCxSpFirst" && listInfo.level) {
                 console.log("OPEN (a)");
                 // List formatting in Word HTML output is awful
                 this.appendOpeningListNode(node, listInfo.level);
                 this.listLevel = listInfo.level;
-	        } else if (cls === "MsoListParagraphCxSpMiddle" && listInfo.level) {
+            } else if (cls === "MsoListParagraphCxSpMiddle" && listInfo.level) {
                 console.log("   MIDDLE (a)");
                 // List formatting in Word HTML output is awful
                 this.appendMiddleListNode(node, listInfo.level);
                 this.listLevel = listInfo.level;
-	        } else if (cls === "MsoListParagraphCxSpLast" && listInfo.level) {
+            } else if (cls === "MsoListParagraphCxSpLast" && listInfo.level) {
                 console.log("CLOSE(a)");
                 // List formatting in Word HTML output is awful
                 this.appendClosingListNode(node, listInfo.level);
                 this.listLevel = listInfo.level-1;
-	        } else if (cls === "MsoListParagraph" && listInfo.level) {
+            } else if (cls === "MsoListParagraph" && listInfo.level) {
                 //console.log("ONE-OFF LIST BULLET");
                 // List formatting in Word HTML output is awful
                 this.appendSoloListNode(node, listInfo.level);
-	        } else if (cls === "Body" && !this.listLevel && listInfo.level) {
+            } else if (cls === "Body" && !this.listLevel && listInfo.level) {
                 console.log(`OPEN (b)`);
                 // List formatting in Word HTML output is awful
                 this.appendOpeningListNode(node, listInfo.level);
                 this.listLevel = listInfo.level;
-	        } else if (cls === "Body" && listInfo.nextElementSiblingIsList && listInfo.level) {
+            } else if (cls === "Body" && listInfo.nextElementSiblingIsList && listInfo.level) {
                 // List formatting in Word HTML output is awful
                 console.log("  MIDDLE (b)");
                 this.appendMiddleListNode(node, listInfo.level);
                 this.listLevel = listInfo.level;
-	        } else if (cls === "Body" && !listInfo.nextElementSiblingIsList && listInfo.level) {
+            } else if (cls === "Body" && !listInfo.nextElementSiblingIsList && listInfo.level) {
                 // List formatting in Word HTML output is awful
                 console.log("CLOSE (b)");
                 this.appendClosingListNode(node, listInfo.level);
@@ -799,17 +846,17 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                     this.appendOrdinaryNode(node, ret);
                 }
             }
-	    } else if (m[1] === "span") {
-	        var cls = node.getAttribute("class");
+        } else if (m[1] === "span") {
+            var cls = node.getAttribute("class");
             var dataInfo = node.getAttribute("data-info");
-	        var style = node.getAttribute("style");
+            var style = node.getAttribute("style");
             // console.log(`${cls} / ${dataInfo} / ${style}`)
             if (style && this.inTitle) {
                 ret = this.newdoc.createElement("span");
                 ret.setAttribute("style", style);
             } else if (style && style.match("small-caps")) {
-        	    ret = this.newdoc.createElement("span");
-		        ret.setAttribute("class", "small-caps");
+                ret = this.newdoc.createElement("span");
+                ret.setAttribute("class", "small-caps");
             } else if (cls && cls.match("cite") && dataInfo) {
                 ret = this.newdoc.createElement(tn);
                 ret.setAttribute("class", "cite");
@@ -819,9 +866,9 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 ret.setAttribute("class", "wide-space");
                 var space = this.newdoc.createTextNode(" ");
                 ret.appendChild(space);
-	        } else {
+            } else {
                 ret = false;
-	        }
+            }
             // console.log(`Input node: ${node.nodeName}, Output node: ${ret}`);
             this.appendOrdinaryNode(node, ret)
         } else if (m[1] === "td") {
@@ -856,12 +903,15 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             if (node.textContent === "Skip Links") {
                 ret.setAttribute("class", "link-note");
             }
-            var str = node.textContent;
+            var str = node.textContent.split("\n").join(" ").split("\r").join("");
             var m = str.match(/([A-Z]\.\ .*|[TR][0-9]([.0-9]*[0-9])*)/);
             if (m) {
-                str = m[1].replace(/^([A-Z])\./, "$1");
+                if (str.slice(0, 1) === "C") {
+                    console.log(`heading ID slug: ${str}`);
+                }
                 ret.setAttribute("id", this.slugify(str));
             }
+
             this.inHeading = true;
             this.appendOrdinaryNode(node, ret);
             this.inHeading = false;
@@ -875,7 +925,10 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             }
             this.appendOrdinaryNode(node, ret);
         } else {
-	        ret = this.newdoc.createElement(tn);
+            if (tn === "ol") {
+                console.log(`ID: ${node.getAttribute("id")}`);
+            }
+            ret = this.newdoc.createElement(tn);
             this.appendOrdinaryNode(node, ret)
         }
     }
@@ -939,10 +992,10 @@ Walker.prototype.writeItemDataFileOrFiles = function(fieldObj) {
 
 Walker.prototype.processInputTree = function(node) {
     if (node.tagName === "body") {
-	    for(var i=0; i<node.childNodes.length; i++) {
+        for(var i=0; i<node.childNodes.length; i++) {
         var child = node.childNodes[i];
-		    this.processInputTree(child);
-	    }
+            this.processInputTree(child);
+        }
         return;
     }
     var type = this.getNodeType(node);
@@ -966,7 +1019,7 @@ Walker.prototype.processInputTree = function(node) {
                 var str = lst[i];
                 if (!str) continue;
                 if (i%2 === 0) {
-	                newnode = this.newdoc.createTextNode(str);
+                    newnode = this.newdoc.createTextNode(str);
                 } else if (i%2 === 1) {
                     var slug = this.slugify(str.replace(/^(?:Table|Rule)\s/, ""));
                     newnode = this.newdoc.createElement("a");
@@ -977,16 +1030,16 @@ Walker.prototype.processInputTree = function(node) {
                 this.getTarget().appendChild(newnode);
             }
         } else {
-	        newnode = this.newdoc.createTextNode(content);
-	        this.getTarget().appendChild(newnode);
+            newnode = this.newdoc.createTextNode(content);
+            this.getTarget().appendChild(newnode);
         }
     } else if (type === "node") {
-	    var style = node.getAttribute("style");
-	    if (style && style.match(/mso-list:Ignore/)) return;
+        var style = node.getAttribute("style");
+        if (style && style.match(/mso-list:Ignore/)) return;
         // No singletons. What about BR and HR?
-	    if (node.tagName === "br" | node.tagName === "td" | node.childNodes.length > 0) {
-	        this.fixNodeAndAppend(node);
-	    }
+        if (node.tagName === "br" | node.tagName === "td" | node.childNodes.length > 0) {
+            this.fixNodeAndAppend(node);
+        }
     } else if (type === "comment") {
         var content = node.nodeValue;
         if (content.slice(0, 19) === "[if supportFields]>" && content.slice(-9) === "<![endif]") {
@@ -1010,6 +1063,46 @@ Walker.prototype.processInputTree = function(node) {
                 this.fixNodeAndAppend(wrapper);
             }
         }
+    }
+}
+
+Walker.prototype.buildTOC = function(doc, node, toc) {
+    if (["h2", "h3", "h4", "h5"].indexOf(node.tagName) > -1) {
+        this.tocEntryCount++;
+        if (this.tocEntryCount > this.tocOffset) {
+            var str = node.textContent.split("\n").join(" ").split("\r").join("");
+            var tocLi = doc.createElement("li");
+            var tocAnchor = doc.createElement("a");
+            tocLi.appendChild(tocAnchor);
+            tocAnchor.setAttribute("href", `#${this.slugify(str)}`);
+            var tocText = doc.createTextNode(str);
+            tocAnchor.setAttribute("class", node.tagName);
+            tocAnchor.appendChild(tocText);
+            toc.appendChild(tocLi);
+        }
+    }
+    if (node.childNodes) {
+        for(var i=0; i<node.childNodes.length; i++) {
+            var child = node.childNodes[i];
+            this.buildTOC(doc, child, toc);
+        }
+    }
+}
+
+Walker.prototype.setTOC = function(doc) {
+    this.tocOffset = 10;
+    this.tocEntryCount = 0;
+    var toc = doc.createElement("ol");
+    toc.setAttribute("id", "toc");
+    var body = xpath.select("//body", doc)[0];
+    this.buildTOC(doc, body, toc);
+    
+    var tocNode = xpath.select('//p[text()="[ToC]"]|//span[text()="[ToC]"]', doc)[0];
+    if (tocNode) {
+        if (tocNode.tagName === "span") {
+            tocNode = tocNode.parentNode;
+        }
+        tocNode.parentNode.replaceChild(toc, tocNode);
     }
 }
 

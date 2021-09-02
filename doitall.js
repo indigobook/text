@@ -34,8 +34,9 @@ const htmlSourcePath = (fn) => {
 }
 
 var outputDOM = null;
+var walker;
 for (var fn of filenames) {
-    var walker = new Walker(htmlSourcePath(fn));
+    walker = new Walker(htmlSourcePath(fn));
     if (!outputDOM) {
         outputDOM = walker.run(true);
         var outputBody = xpath.select("//body", outputDOM)[0];
@@ -48,6 +49,9 @@ for (var fn of filenames) {
 	    }
     }
 }
+
+walker.setTOC(outputDOM);
+
 var output = pretty((new serializer()).serializeToString(outputDOM));
 output = walker.fixEntities(output);
 output = `<!DOCTYPE html>
