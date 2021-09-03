@@ -1019,9 +1019,6 @@ Walker.prototype.processInputTree = function(node) {
                     newnode = this.newdoc.createTextNode(str);
                 } else if (i%2 === 1) {
                     var slug = this.slugify(str.replace(/^(?:Table|Rule)\s/, ""));
-                    if (slug === "r12-4") {
-                        console.log(str);
-                    }
                     newnode = this.newdoc.createElement("a");
                     newnode.setAttribute("href", `#${slug}`);
                     var strNode = this.newdoc.createTextNode(str);
