@@ -317,7 +317,7 @@ function Walker (inputFile) {
 
 Walker.prototype.slugify = function(str) {
     str = str.trim();
-    str = str.replace(/\./g, "");
+    str = str.replace(/\./g, " ");
     str = str.replace(/&amp;/g, "and");
     str = str.replace(/&nbsp;/g, " ");
     str = str.replace(/\s\s+/g, " ");
@@ -905,9 +905,9 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 ret.setAttribute("class", "link-note");
             }
             var str = node.textContent.split("\n").join(" ").split("\r").join("");
-            var m = str.match(/([A-Z]\.\ .*|[TR][0-9]([.0-9]*[0-9])*)/);
+            var m = str.match(/^([A-Z]\.\ .*|[TR][0-9]([.0-9]*[0-9])*)/);
             if (m) {
-                ret.setAttribute("id", this.slugify(str));
+                ret.setAttribute("id", this.slugify(m[1]));
             }
 
             this.inHeading = true;
@@ -1019,6 +1019,9 @@ Walker.prototype.processInputTree = function(node) {
                     newnode = this.newdoc.createTextNode(str);
                 } else if (i%2 === 1) {
                     var slug = this.slugify(str.replace(/^(?:Table|Rule)\s/, ""));
+                    if (slug === "r12-4") {
+                        console.log(str);
+                    }
                     newnode = this.newdoc.createElement("a");
                     newnode.setAttribute("href", `#${slug}`);
                     var strNode = this.newdoc.createTextNode(str);
@@ -1070,11 +1073,12 @@ Walker.prototype.buildTOC = function(doc, node, toc) {
     if (["h2", "h3", "h4", "h5"].indexOf(node.tagName) > -1) {
         this.tocEntryCount++;
         if (this.tocEntryCount > this.tocOffset) {
+            var myid = node.getAttribute("id");
             var str = node.textContent.split("\n").join(" ").split("\r").join("");
             var tocLi = doc.createElement("li");
             var tocAnchor = doc.createElement("a");
             tocLi.appendChild(tocAnchor);
-            tocAnchor.setAttribute("href", `#${this.slugify(str)}`);
+            tocAnchor.setAttribute("href", `#${myid}`);
             var tocText = doc.createTextNode(str);
             tocAnchor.setAttribute("class", node.tagName);
             tocAnchor.appendChild(tocText);
