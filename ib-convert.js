@@ -78,7 +78,19 @@ var template = `
           margin-bottom: .75in;
           widows:2;
       }
-      @page contents :left {
+      @page frontmatter {
+        @bottom {
+          content: counter(page, lower-roman);
+          font-family: 'Libre Baskerville', Georgia, serif;
+          font-style: italic;
+        }
+      }
+      @page frontmatter:first {
+        @bottom {
+          content: none;
+        }
+      }
+      @page contents:left {
           @top-left {
               content: 'The Indigo Book';
               font-family: 'Libre Baskerville', Georgia, serif;
@@ -90,7 +102,7 @@ var template = `
               font-style: italic;
           }
       } 
-      @page contents :right {
+      @page contents:right {
           @top-right {
               content: string(title);
               font-family: 'Libre Baskerville', Georgia, serif;
@@ -102,6 +114,7 @@ var template = `
               font-style: italic;
           }
       }
+      #frontmatter { counter-reset: page 0; page: frontmatter }
       #contents { counter-reset: page 1; page: contents }
       #toc li { list-style-type: none }
       #toc a:after {
@@ -899,10 +912,14 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             if (node.textContent === "Skip Links") {
                 ret.setAttribute("class", "link-note");
             }
-            var str = node.textContent.split("\n").join(" ").split("\r").join("");
-            var m = str.match(/^([A-Z]\.\ .*|[TR][0-9]([.0-9]*[0-9])*)/);
-            if (m) {
-                ret.setAttribute("id", this.slugify(m[1]));
+            if (node.textContent.trim() === "Introduction") {
+                ret.setAttribute("id", "introduction");
+            } else {
+                var str = node.textContent.split("\n").join(" ").split("\r").join("");
+                var m = str.match(/^([A-Z]\.\ .*|[TR][0-9]([.0-9]*[0-9])*)/);
+                if (m) {
+                    ret.setAttribute("id", this.slugify(m[1]));
+                }
             }
 
             this.inHeading = true;
@@ -1090,7 +1107,7 @@ Walker.prototype.buildTOC = function(doc, node, toc) {
 }
 
 Walker.prototype.setTOC = function(doc) {
-    this.tocOffset = 9;
+    this.tocOffset = 8;
     this.tocEntryCount = 0;
     var toc = doc.createElement("ol");
     toc.setAttribute("id", "toc");
