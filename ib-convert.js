@@ -7,6 +7,8 @@ const xpath = require("xpath");
 const pretty = require('pretty');
 const slugify = require('slugify');
 
+var urlTypes = JSON.parse(fs.readFileSync("url-types.json").toString());
+
 /*
  * Paths
  */
@@ -76,7 +78,7 @@ var template = `
           margin-bottom: .75in;
           widows:2;
       }
-      @page :left {
+      @page contents :left {
           @top-left {
               content: 'The Indigo Book';
               font-family: 'Libre Baskerville', Georgia, serif;
@@ -88,7 +90,7 @@ var template = `
               font-style: italic;
           }
       } 
-      @page :right {
+      @page contents :right {
           @top-right {
               content: string(title);
               font-family: 'Libre Baskerville', Georgia, serif;
@@ -100,6 +102,7 @@ var template = `
               font-style: italic;
           }
       }
+      #contents { counter-reset: page 1; page: contents }
       #toc li { list-style-type: none }
       #toc a:after {
           content: leader('.') target-counter(attr(href), page);
@@ -426,7 +429,6 @@ Walker.prototype.getJurisdictionMap = function(code) {
     
     var _jurisdictionKeySplit = code.split(":");
     var topJurisdiction = _jurisdictionKeySplit[0];
-    // console.log(`Loading jurisdiction codes for: ${topJurisdiction}`);
     
     var jurisdictionFile = `juris-${topJurisdiction}-map.json`;
     var jurisdictionJSON = fs.readFileSync(jurisMapPath(jurisdictionFile)).toString();
@@ -484,7 +486,6 @@ Walker.prototype.appendOrdinaryNode = function(inputNode, outputNode) {
         }
         for(var i=0; i<inputNode.childNodes.length; i++) {
             var child = inputNode.childNodes[i];
-            // console.log(`   child: ${child.textContent}`);
             this.processInputTree(child);
         }
         if (outputNode) {
@@ -545,9 +546,7 @@ Walker.prototype.setListType = function(node) {
     // values and apply a heuristic.
     var ret = "ul";
     var bulletOrNumber = xpath.select('.//span[@style="mso-list:Ignore"]', node)[0];
-    if (bulletOrNumber) {
-        // console.log(`  ${bulletOrNumber.firstChild.nodeValue}`)
-    } else {
+    if (!bulletOrNumber) {
         console.log(`  No number in list, in file "${this.fileName}" under "${node.parentNode.textContent.trim().slice(0,20)}" near "${node.textContent.trim().slice(0,60)}"`);
     }
     if (bulletOrNumber && bulletOrNumber.firstChild && this.getNodeType(bulletOrNumber.firstChild) === "text") {
@@ -702,7 +701,6 @@ Walker.prototype.openInklingBoxNode = function(inputNode) {
     this.addTarget(inklingTitle);
         for(var i=0; i<inputNode.childNodes.length; i++) {
             var child = inputNode.childNodes[i];
-            // console.log(`   child: ${child.textContent}`);
             this.processInputTree(child);
         }
     
@@ -732,7 +730,6 @@ Walker.prototype.appendInklingNode = function(inputNode) {
     
         for(var i=0; i<inputNode.childNodes.length; i++) {
             var child = inputNode.childNodes[i];
-            // console.log(`   child: ${child.textContent}`);
             this.processInputTree(child);
         }
 
@@ -851,7 +848,6 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             var cls = node.getAttribute("class");
             var dataInfo = node.getAttribute("data-info");
             var style = node.getAttribute("style");
-            // console.log(`${cls} / ${dataInfo} / ${style}`)
             if (style && this.inTitle) {
                 ret = this.newdoc.createElement("span");
                 ret.setAttribute("style", style);
@@ -870,7 +866,6 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             } else {
                 ret = false;
             }
-            // console.log(`Input node: ${node.nodeName}, Output node: ${ret}`);
             this.appendOrdinaryNode(node, ret)
         } else if (m[1] === "td") {
             ret = this.newdoc.createElement("td");
@@ -914,10 +909,19 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             this.appendOrdinaryNode(node, ret);
             this.inHeading = false;
         } else if (m[1] === "a") {
+            var contents = node.textContent.split("\n").join(" ").split("\r").join("");
             var href = node.getAttribute("href");
-            if (href) {
+            var skipAnchor = false;
+            if (urlTypes.embedded.indexOf(href) > -1) {
+                skipAnchor = true;
+            }
+            if (href && !skipAnchor) {
                 ret = this.newdoc.createElement("a");
                 ret.setAttribute("href", href);
+1                //if (contents !== href) {
+                //    console.log(contents);
+                //    console.log(`    ${href}`);
+                //}
             } else {
                 ret = false;
             }
@@ -948,8 +952,6 @@ Walker.prototype.buildDataInfo = function(fieldObj) {
 
     fieldObj = this.fixFieldObj(fieldObj);
     
-    // console.log(JSON.stringify(fieldObj, null, 2));
-
     for (var citationItem of fieldObj.citationItems) {
  
         var info = [];
@@ -1064,9 +1066,6 @@ Walker.prototype.processInputTree = function(node) {
 }
 
 Walker.prototype.buildTOC = function(doc, node, toc) {
-    //if (node.tagName === "a" && node.getAttribute("href") && node.getAttribute("href").match(/^https?:\/\//)) {
-    //    console.log(node.getAttribute("href"));
-    //}
     if (["h2", "h3", "h4", "h5"].indexOf(node.tagName) > -1) {
         this.tocEntryCount++;
         if (this.tocEntryCount > this.tocOffset) {
@@ -1091,7 +1090,7 @@ Walker.prototype.buildTOC = function(doc, node, toc) {
 }
 
 Walker.prototype.setTOC = function(doc) {
-    this.tocOffset = 10;
+    this.tocOffset = 9;
     this.tocEntryCount = 0;
     var toc = doc.createElement("ol");
     toc.setAttribute("id", "toc");
