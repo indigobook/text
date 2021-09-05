@@ -14,7 +14,21 @@
         widows: 2;
       }
 
-      @page contents :left {
+      @page frontmatter {
+        @bottom {
+          content: counter(page, lower-roman);
+          font-family: 'Libre Baskerville', Georgia, serif;
+          font-style: italic;
+        }
+      }
+
+      @page frontmatter:first {
+        @bottom {
+          content: none;
+        }
+      }
+
+      @page contents:left {
         @top-left {
           content: 'The Indigo Book';
           font-family: 'Libre Baskerville', Georgia, serif;
@@ -28,7 +42,7 @@
         }
       }
 
-      @page contents :right {
+      @page contents:right {
         @top-right {
           content: string(title);
           font-family: 'Libre Baskerville', Georgia, serif;
@@ -40,6 +54,11 @@
           font-family: 'Libre Baskerville', Georgia, serif;
           font-style: italic;
         }
+      }
+
+      #frontmatter {
+        counter-reset: page 0;
+        page: frontmatter
       }
 
       #contents {
@@ -234,6 +253,7 @@ mso-font-kerning:18.0pt">The Indigo Book</span></b></p>
         <p>This document is available in HTML AND PDF formats.</p>
         <h2>Table of Contents</h2>
         <ol id="toc">
+          <li><a href="#introduction" class="h2">Introduction</a></li>
           <li><a href="#a-background-rules" class="h2">A. BACKGROUND RULES</a></li>
           <li><a href="#r1" class="h3">R1  Scope and Format of Standard Legal Documents</a></li>
           <li><a href="#r1-1" class="h4">R1.1   Standard Legal Documents</a></li>
@@ -575,7 +595,7 @@ mso-font-kerning:18.0pt">The Indigo Book</span></b></p>
     </div>
     <div id="contents" page="contents">
       <div>
-        <h2>Introduction</h2>
+        <h2 id="introduction">Introduction</h2>
         <p>Welcome to <i>The Indigo Book 2.0</i>—a free, Creative Commons-dedicated implementation of the uniform system of citation commonly used in United States legal documents.</p>
         <p><i>The Indigo Book </i>(2d ed. 2021) isn’t the same as <i>The Bluebook: A Uniform System of Citation</i> (21st ed. 2020), but it does implement the same system of citation that <i>The Bluebook</i> does. The scope of <i>The Indigo Book</i>’s coverage is roughly equivalent to <i>The Bluebook</i>’s “Bluepages”—that is, <i>The Indigo Book</i> covers legal citation for U.S. legal materials, as well as books, periodicals, and Internet and other electronic resources. For the materials that it covers, anyone using <i>The Indigo Book</i> will produce briefs, memoranda, law review articles, and other legal documents with citations that are compatible with the Uniform System of Citation. Although law students, scholars, and legal professionals sometimes talk about legal citation as if it is truly uniform, the fact is that legal citation has never actually been a uniform national system. Accordingly, <i>The Indigo Book</i> also provides insight into some of the discretionary preferences and jurisdiction-specific variations found in legal citation throughout the United States.</p>
         <p>Unlike <i>The Bluebook </i>and competitor citation manual <i>The ALWD Guide to Legal Citation</i>, <i>The Indigo Book</i> is free, in two senses. <i>The Indigo Book</i> is given to you free of charge. <i>The Indigo Book</i> is also free of the restrictions of copyright. You are free to copy and distribute this work, and to improve on it. As with the 2016 version, we are releasing this version of <i>The Indigo Book</i> under a Creative Commons “CC0” public domain dedication that allows you to use it, copy it, distribute it, and modify it. <i>The Indigo Book</i> welcomes the Juris-M project for automating legal citations, built in connection with the citation formats provided in the First Edition of <i>The Indigo Book</i> and in progress with updates reflecting this Second Edition.</p>
