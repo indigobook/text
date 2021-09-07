@@ -387,7 +387,7 @@ Walker.prototype.run = function(returnDOM) {
     // as per current state of play.
     //
     // Cleanup
-    var tagList = ["p", "b", "i", "blockquote", "h1", "h2", "h3", "h4", "h5", "a"];
+    var tagList = ["p", "b", "i", "blockquote", "h1", "h2", "h3", "h4", "h5", "a", "u"];
     for (var tagName of tagList) {
         var elems = this.newdoc.getElementsByTagName(tagName);
         for (var i=elems.length-1; i>-1; i--) {
@@ -779,7 +779,7 @@ Walker.prototype.getNextNonEmptyElementSibling = function(node) {
 Walker.prototype.fixNodeAndAppend = function(node) {
     var ret = null;
     var tn = node.tagName;
-    var m = tn.match(/(table|thead|tbody|span|h[0-9]|sup|tr|td|ul|ol|li|br|p|i|b|a)/);
+    var m = tn.match(/(table|thead|tbody|span|h[0-9]|sup|tr|td|ul|ol|li|br|p|i|b|a|u)/);
     if (m) {
         if (m[1] === "p") {
             ret = this.newdoc.createElement("p");
