@@ -1,4 +1,4 @@
-## Welcome to GitHub Pages X
+## Welcome to GitHub Pages XX
 
 You can use the [editor on
 GitHub](https://github.com/indigobook/text/edit/gh-pages/index.md) to
