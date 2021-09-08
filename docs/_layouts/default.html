@@ -16,8 +16,10 @@
     <!-- HEADER -->
     <div id="header_wrap" class="outer">
         <header class="inner">
-          {% if site.github.is_project_page & false %}
-            <a id="forkme_banner" href="{{ site.github.repository_url }}">Source files</a>
+          {% if site.github.is_project_page %}
+            {% if false %}
+            <a id="forkme_banner" href="{{ site.github.repository_url }}">View on GitHub</a>
+            {% endif %}
           {% endif %}
 
           <h1 id="project_title">{{ site.title | default: site.github.repository_name }}</h1>
