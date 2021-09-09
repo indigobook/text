@@ -85,7 +85,7 @@ var template = `
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Sample Output: Indigo Book</title>
+    <title>Indigo Book 2.0</title>
     <style>
       @page {
           border: 0; margin-left: .75in;
