@@ -9,6 +9,22 @@ const slugify = require('slugify');
 
 var urlTypes = JSON.parse(fs.readFileSync("url-types.json").toString());
 
+const monthName = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+const getCurrentDate = () => {
+    var d = new Date();
+    var year = d.getFullYear();
+    var month = monthName[d.getMonth()];
+    var date = d.getDate();
+    return `${month} ${date}, ${year}`;
+}
+
+const getHash = () => {
+    return require('child_process')
+        .execSync('git rev-parse --short HEAD')
+        .toString().trim();
+}
+
 /*
  * Paths
  */
@@ -1121,6 +1137,20 @@ Walker.prototype.setTOC = function(doc) {
         }
         tocNode.parentNode.replaceChild(toc, tocNode);
     }
+}
+
+Walker.prototype.setDate = function(doc) {
+    var dateNode = xpath.select('//b[text()="[DATE]"]|//span[text()="[DATE]"]', doc)[0];
+    var dateText = doc.createTextNode(getCurrentDate());
+    dateNode.parentNode.replaceChild(dateText, dateNode);
+}
+
+Walker.prototype.setHash = function(doc) {
+    var hash = getHash();
+    var hashNode = xpath.select('//b[text()="[HASH]"]|//span[text()="[HASH]"]', doc)[0];
+    var hashText = doc.createTextNode(hash);
+    hashNode.parentNode.replaceChild(hashText, hashNode);
+    
 }
 
 /*

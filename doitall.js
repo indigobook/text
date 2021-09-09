@@ -6,7 +6,7 @@ const pretty = require('pretty');
 var Walker = require("./ib-convert");
 
 const buildPath = (fn) => {
-    var stub = path.join(".", "docs");
+    var stub = path.join(".", "docs", "versions");
     fs.mkdirSync(stub, {recursive: true});
     if (fn) {
         return path.join(stub, fn);
@@ -14,6 +14,12 @@ const buildPath = (fn) => {
         return stub;
     }
 }
+
+const runPrince = () => {
+    require('child_process')
+        .execSync('~/prince/bin/prince docs/versions/indigobook-2.0-beta.html -o docs/versions/indigobook-2.0-beta.pdf');
+}
+    
 
 var filenames = [
     { filename: "Indigo Book 2d ed Final Front Matter.html", pagetype: "frontmatter" },
@@ -69,10 +75,13 @@ for (var fileInfo of filenames) {
 console.log("Generating table of contents");
 
 walker.setTOC(firstdoc);
+walker.setDate(firstdoc);
+walker.setHash(firstdoc);
 
 var output = pretty((new serializer()).serializeToString(firstdoc));
 output = walker.fixEntities(output);
 output = `<!DOCTYPE html>
 ${output}`;
-fs.writeFileSync(`${buildPath("index.html")}`, output);
-console.log("  Generated file is at ./docs/index.html");
+fs.writeFileSync(`${buildPath(`indigobook-2.0-beta.html`)}`, output);
+runPrince();
+console.log("  Generated file is at ./docs/indigobook-2.0-XSbeta.html");
