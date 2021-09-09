@@ -9,8 +9,6 @@
 
 - **Final Version:** [PDF](https://law.resource.org/pub/us/code/blue/IndigoBook.pdf), [HTML](https://law.resource.org/pub/us/code/blue/IndigoBook.html)
 
-----------
 
-You can use the [Editors](https://github.com/indigobook/text/docs/edit/master/index.md) to
-maintain and preview the content for your website in Markdown files.
+
 
