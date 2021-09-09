@@ -3,7 +3,7 @@
 ### Indigo Book 2.0 (Romig ed.)
 
 - **Final Version:** *forthcoming*
-- **Current Beta:** [PDF](versions/indigobook-2.0-beta-<latest-hash>.pdf), [HTML](versions/indigobook-2.0-beta-<latest-hash>.html)
+- **Current Beta:** [PDF](versions/indigobook-2.0-beta.pdf), [HTML](versions/indigobook-2.0-beta.html)
 
 ### Indigo Book 1.0 (Sprigman et al. eds.)
 
