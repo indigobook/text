@@ -213,13 +213,16 @@ var template = `
           color: #900;
       }
       .inkling-box {
-          border: 1px solid black;
-          padding-left: 1em;
-          padding-right: 1em;
-          margin-bottom: 12px;
+          border: 2px solid #4B0082;
+          padding: 10px;
+          background-color: rgba(75, 0, 130,0.05);
+          margin-top: 19px;
+          margin-bottom: 6px;
       }
       .inkling-title {
           font-variant: small-caps;
+          color: #4B0082;
+          font-weight: bold;
           page-break-after: avoid;
       }
       .cite:hover {
@@ -548,7 +551,6 @@ Walker.prototype.getListInfo = function(node) {
         ret = {};
         var m = style.match(/mso-list:\s*(l[0-9]+)[^;]*level([0-9])/);
         if (m) {
-            console.log("HIYA");
             ret.id = m[1];
             ret.level = parseInt(m[2], 10);
         }
@@ -558,7 +560,6 @@ Walker.prototype.getListInfo = function(node) {
     if (nextElementSibling) {
         var nextIndent = this.getIndent(nextElementSibling);
         if (nextIndent >= currentIndent) {
-            console.log("  IN LIST");
             ret.nextElementSiblingIsList = true;
         } else {
             var nextElementSiblingStyle = nextElementSibling.getAttribute("style");
@@ -829,7 +830,7 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 //console.log("ONE-OFF LIST BULLET");
                 // List formatting in Word HTML output is awful
                 this.appendSoloListNode(node, listInfo.level);
-            } else if (cls === "Body" && !this.listLevel && listInfo.level) {
+            } else if (/* cls === "Body" && */ !this.listLevel && listInfo.level) {
                 //console.log(`OPEN (b)`);
                 // List formatting in Word HTML output is awful
                 this.appendOpeningListNode(node, listInfo.level);
@@ -1063,7 +1064,7 @@ Walker.prototype.processInputTree = function(node) {
                 }
                 this.getTarget().appendChild(newnode);
             }
-        } else {
+       } else {
             newnode = this.newdoc.createTextNode(content);
             this.getTarget().appendChild(newnode);
         }
