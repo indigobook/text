@@ -84,4 +84,4 @@ output = `<!DOCTYPE html>
 ${output}`;
 fs.writeFileSync(`${buildPath(`indigobook-2.0-beta.html`)}`, output);
 runPrince();
-console.log("  Generated file is at ./docs/indigobook-2.0-XSbeta.html");
+console.log("  Generated file is at ./docs/indigobook-2.0-beta.html");
