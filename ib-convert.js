@@ -548,6 +548,7 @@ Walker.prototype.getListInfo = function(node) {
         ret = {};
         var m = style.match(/mso-list:\s*(l[0-9]+)[^;]*level([0-9])/);
         if (m) {
+            console.log("HIYA");
             ret.id = m[1];
             ret.level = parseInt(m[2], 10);
         }
@@ -557,6 +558,7 @@ Walker.prototype.getListInfo = function(node) {
     if (nextElementSibling) {
         var nextIndent = this.getIndent(nextElementSibling);
         if (nextIndent >= currentIndent) {
+            console.log("  IN LIST");
             ret.nextElementSiblingIsList = true;
         } else {
             var nextElementSiblingStyle = nextElementSibling.getAttribute("style");
@@ -832,12 +834,12 @@ Walker.prototype.fixNodeAndAppend = function(node) {
                 // List formatting in Word HTML output is awful
                 this.appendOpeningListNode(node, listInfo.level);
                 this.listLevel = listInfo.level;
-            } else if (cls === "Body" && listInfo.nextElementSiblingIsList && listInfo.level) {
+            } else if (/* cls === "Body" && */ listInfo.nextElementSiblingIsList && listInfo.level) {
                 // List formatting in Word HTML output is awful
                 //console.log("  MIDDLE (b)");
                 this.appendMiddleListNode(node, listInfo.level);
                 this.listLevel = listInfo.level;
-            } else if (cls === "Body" && !listInfo.nextElementSiblingIsList && listInfo.level) {
+            } else if (/* cls === "Body" && */ !listInfo.nextElementSiblingIsList && listInfo.level) {
                 // List formatting in Word HTML output is awful
                 //console.log("CLOSE (b)");
                 this.appendClosingListNode(node, listInfo.level);
@@ -1176,18 +1178,20 @@ var positionMap = {
 
 
 if (require.main === module) {
-    var opt = require('node-getopt').create([
-        ["i", "input-file", "File for input"],
+    var getOpt = require("node-getopt");
+    var opt = getOpt.create([
+        ["i", "input-file=ARG", "File for input"],
         ["h", "help", "Display this help"]
     ])
         .bindHelp()
         .parseSystem();
-    if (!opt.argv[0] || opt.argv[0].slice(-5) !== ".html") {
-        var err = new Error("Run this script with an HTML source file as argument");
+    if (!opt.options.i) {
+        var err = new Error("Run this script with an HTML source file as -i argument");
         console.log(err.message);
+        opt.showHelp();
         process.exit();
     }
-    const walker = new Walker(opt.argv[0]);
+    const walker = new Walker(opt.options.i);
     walker.run();
 } else {
     module.exports = Walker;
