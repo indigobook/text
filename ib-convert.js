@@ -106,6 +106,11 @@ var template = `
           content: none;
         }
       }
+	  @page :first {
+		@top-right { content: normal }
+		@bottom-right { content: normal }
+		margin: 0 ; 
+	  }
       @page contents:left {
           @top-left {
               content: 'The Indigo Book';
@@ -148,6 +153,7 @@ var template = `
       p.no-break-after {
           page-break-after: avoid;
       }
+      .page-break { page-break-before: always; }
       h2 {
           color: #990000;
           font-size: 16pt;
@@ -245,6 +251,55 @@ var template = `
       .small-caps {
           font-variant: small-caps;
       }
+    /*
+        CSS for the cover (start)
+    */
+    main, nav { display: block ; }
+	.offscreen {
+		 position: absolute;
+		 width: 1px;
+		 height: 1px;
+		 margin: -1px;
+		 padding: 0;
+		 overflow: hidden;
+		 clip: rect(1px 1px 1px 1px); /* IE6, IE7 */
+	     clip: rect(1px, 1px, 1px, 1px);
+		 border: 0;
+	}
+	:focus.offscreen {
+		 width: auto;
+		 height: auto;
+		 margin: 0;
+		 overflow: auto;
+		 clip: auto;
+		 display: block;
+		 background: #eee;
+		 color: #000;
+		 text-decoration: underline; 
+		 padding: 1em;
+	}
+    
+	svg.scale {width: 100%; height: auto;}
+	svg.centered { margin-left: auto; margin-right: auto; display: block; }
+
+    div.offscreen h2 { prince-bookmark-level: none }
+	div.cover { background-color: #442327 ; padding: 50px; vertical-align: middle ;   }
+	div.cover h1 { text-align: center ; color: #dfbb92 ; font-variant: small-caps ; font-size: 21pt; line-height: 32pt; }
+	div.cover .display { font-size: 58pt; font-variant: small-caps ;   }
+	div.cover p.subtitle { text-align: center ; color: #dfbb92; font-size: 18pt ; padding-top: 20px ; padding-bottom: 20px;  }
+	div.cover p.subwarn { text-align: center ; color: #dfbb92; font-size: 12pt; text-transform: uppercase ;  }
+
+    h1, p.subtitle, p.subwarn { font-family: Alice, Georgia, serif ; }
+    
+	@media print { 
+		div.cover { position: absolute; height: 11in; margin-left: 0; margin-top: 0; width: 8in; }
+	}
+    
+
+    /*
+        CSS for the cover (end)
+    */
+    
       /*
       tbody td.multicol {
           background: #fffcc5;
@@ -1151,9 +1206,10 @@ Walker.prototype.setDate = function(doc) {
 Walker.prototype.setHash = function(doc) {
     var hash = getHash();
     var hashNode = xpath.select('//b[text()="[HASH]"]|//span[text()="[HASH]"]', doc)[0];
-    var hashText = doc.createTextNode(hash);
-    hashNode.parentNode.replaceChild(hashText, hashNode);
-    
+    if (hashNode) {
+        var hashText = doc.createTextNode(hash);
+        hashNode.parentNode.replaceChild(hashText, hashNode);
+    }
 }
 
 /*

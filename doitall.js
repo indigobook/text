@@ -1,5 +1,6 @@
 const fs = require("fs");
 var path = require("path");
+const dom = require("htmldom2").DOMParser;
 const serializer = require("htmldom2").XMLSerializer;
 const xpath = require("xpath");
 const pretty = require('pretty');
@@ -17,7 +18,7 @@ const buildPath = (fn) => {
 
 const runPrince = () => {
     require('child_process')
-        .execSync('~/prince/bin/prince docs/versions/indigobook-2.0-beta.html -o docs/versions/indigobook-2.0-beta.pdf');
+        .execSync('~/prince/bin/prince docs/versions/indigobook-2.0-prerelease.html -o docs/versions/indigobook-2.0-prerelease.pdf');
 }
     
 
@@ -58,18 +59,18 @@ for (var fileInfo of filenames) {
         var doc = walker.run(true);
         body = xpath.select("//body", doc)[0];
     }
-
     if (currentPageType !== fileInfo.pagetype) {
         currentPageType = fileInfo.pagetype;
         var currentTarget = firstdoc.createElement("div");
         currentTarget.setAttribute("id", currentPageType);
         currentTarget.setAttribute("page", currentPageType);
+        currentTarget.setAttribute("class", "page-break");
         firstbody.appendChild(currentTarget);
     }
     for(var i=0; i<body.childNodes.length; i++) {
         var child = body.childNodes[i].cloneNode(true);
 		currentTarget.appendChild(child);
-	}
+    }
 }
 
 console.log("Generating table of contents");
@@ -78,10 +79,17 @@ walker.setTOC(firstdoc);
 walker.setDate(firstdoc);
 walker.setHash(firstdoc);
 
+var cover = fs.readFileSync(path.join(htmlSourcePath(), "..", "Cover-1.html")).toString();
+
 var output = pretty((new serializer()).serializeToString(firstdoc));
 output = walker.fixEntities(output);
 output = `<!DOCTYPE html>
 ${output}`;
-fs.writeFileSync(`${buildPath(`indigobook-2.0-beta.html`)}`, output);
+var outputlst = output.split("<body>");
+output = [outputlst[0], "<body>", cover, outputlst[1]].join("\n");
+
+
+
+fs.writeFileSync(`${buildPath(`indigobook-2.0-prerelease.html`)}`, output);
 runPrince();
-console.log("  Generated file is at ./docs/indigobook-2.0-beta.html");
+console.log("  Generated file is at ./docs/indigobook-2.0-prerelease.html");
