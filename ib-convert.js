@@ -292,7 +292,8 @@ var template = `
     div.offscreen h2 { prince-bookmark-level: none }
 	div.cover { background-color: #442327 ; padding: 50px; vertical-align: middle ;   }
 	div.cover h1 { text-align: center ; color: #dfbb92 ; font-variant: small-caps ; font-size: 21pt; line-height: 32pt; }
-	div.cover .display { font-size: 58pt; font-variant: small-caps ;   }
+	div.cover h1 .display { font-size: 58pt; font-variant: small-caps ;   }
+	div.cover h1 .small-display { font-size: 40pt; }
 	div.cover p.subtitle { text-align: center ; color: #dfbb92; font-size: 18pt ; padding-top: 20px ; padding-bottom: 20px;  }
 	div.cover p.subwarn { text-align: center ; color: #dfbb92; font-size: 12pt; text-transform: uppercase ;  }
 
@@ -1008,7 +1009,8 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             this.inHeading = false;
         } else if (m[1] === "a") {
             var contents = node.textContent.split("\n").join(" ").split("\r").join("");
-            var href = node.getAttribute("href");
+            // Fix dynamic links broken by LibreOffice HTML save.
+            var href = node.getAttribute("href").replace("&amp;", "&");
             var skipAnchor = false;
             if (urlTypes.embedded.indexOf(href) > -1) {
                 skipAnchor = true;
