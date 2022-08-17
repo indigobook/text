@@ -1017,10 +1017,10 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             if (href && !skipAnchor) {
                 ret = this.newdoc.createElement("a");
                 ret.setAttribute("href", href);
-                //if (contents !== href) {
-                //    console.log(contents);
-                //    console.log(`    ${href}`);
-                //}
+                // For external links only, open in a new tab
+                if (href.match(/^https?:\/\//)) {
+                    ret.setAttribute("target", "_blank");
+                }
             } else {
                 ret = false;
             }
@@ -1129,7 +1129,6 @@ Walker.prototype.processInputTree = function(node) {
             }
        } else {
             if (content.match(/^https?:\/\/[^\s]+$/)) {
-                console.log(`Link! ${content}`);
                 // Insert a zero-width space before certain characters
                 var m = content.match(/(https?:\/\/)(.*)/);
                 str = m[2].replace(/([-&?_\/])/g, "​$1");
