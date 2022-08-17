@@ -191,6 +191,9 @@ var template = `
           width: 1em;
           display:inline-block;
       }
+      h2 a, h3 a, h4 a, h5 a {
+          text-decoration: none;
+      }
       p {
           text-align: left;
           margin: 0;
@@ -1161,15 +1164,27 @@ Walker.prototype.buildTOC = function(doc, node, toc) {
         this.tocEntryCount++;
         if (this.tocEntryCount > this.tocOffset) {
             var myid = node.getAttribute("id");
+            // Build ToC entry node and append
             var str = node.textContent.split("\n").join(" ").split("\r").join("");
             var tocLi = doc.createElement("li");
             var tocAnchor = doc.createElement("a");
             tocLi.appendChild(tocAnchor);
             tocAnchor.setAttribute("href", `#${myid}`);
+            tocAnchor.setAttribute("id", `toc_${myid}`);
             var tocText = doc.createTextNode(str);
             tocAnchor.setAttribute("class", node.tagName);
             tocAnchor.appendChild(tocText);
             toc.appendChild(tocLi);
+            // Wrap heading in link back up to ToC
+            var headingAnchor = doc.createElement("a");
+            headingAnchor.setAttribute("href", `#toc_${myid}`);
+            var len = node.childNodes.length;
+            for (var i=0; i<len; i++) {
+                var elem = node.childNodes[0].cloneNode(true);
+                node.removeChild(node.childNodes[0]);
+                headingAnchor.appendChild(elem);
+            }
+            node.appendChild(headingAnchor);
         }
     }
     if (node.childNodes) {
@@ -1181,7 +1196,7 @@ Walker.prototype.buildTOC = function(doc, node, toc) {
 }
 
 Walker.prototype.setTOC = function(doc) {
-    this.tocOffset = 8;
+    this.tocOffset = 1;
     this.tocEntryCount = 0;
     var toc = doc.createElement("ol");
     toc.setAttribute("id", "toc");

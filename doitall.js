@@ -24,7 +24,6 @@ const runPrince = () => {
 
 var filenames = [
     { filename: "Indigo Book 2d ed Final Front Matter.html", pagetype: "frontmatter" },
-    { filename: "Indigo Book 2d ed Final Introduction.html", pagetype: "contents" },
     { filename: "Section A Final Indigo Book 2d ed.html", pagetype: "contents" },
     { filename: "Section B Final Indigo Book 2d ed.html", pagetype: "contents" },
     { filename: "Section C Final Indigo Book 2d ed.html", pagetype: "contents" },
