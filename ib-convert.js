@@ -163,13 +163,14 @@ var template = `
           margin-bottom: 0px;
           text-indent: 0px;
           string-set: title contents;
+          font-weight: bold;
       }
       h2.link-note {
          font-family:"Calibri",sans-serif;
          font-weight:normal;
          font-size:13pt;
          color:#2F5496;
-         string-set: none
+         string-set: none;
       }
       h3 {
           padding-bottom: 5px;
@@ -193,6 +194,9 @@ var template = `
       }
       h2 a, h3 a, h4 a, h5 a {
           text-decoration: none;
+          font-weight: inherit;
+          font-style: inherit;
+          color: inherit;
       }
       p {
           text-align: left;
