@@ -1008,7 +1008,6 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             this.appendOrdinaryNode(node, ret);
             this.inHeading = false;
         } else if (m[1] === "a") {
-            var contents = node.textContent.split("\n").join(" ").split("\r").join("");
             // Fix dynamic links broken by LibreOffice HTML save.
             var href = node.getAttribute("href").replace("&amp;", "&");
             var skipAnchor = false;
@@ -1018,7 +1017,7 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             if (href && !skipAnchor) {
                 ret = this.newdoc.createElement("a");
                 ret.setAttribute("href", href);
-1                //if (contents !== href) {
+                //if (contents !== href) {
                 //    console.log(contents);
                 //    console.log(`    ${href}`);
                 //}
@@ -1106,12 +1105,12 @@ Walker.prototype.processInputTree = function(node) {
         content = content.replace(/&gt;/g, ">");
         content = content.replace(/&lt;/g, "<");
         content = content.replace(/&quot;/g, '"');
+        content = content.split("\n").join(" ").split("\r").join("");
         
         // Create anchors for Rule and Table internal cross-references
         
         var newnode;
         if (!this.inHeading && !this.inAnchor) {
-            content = content.split("\n").join(" ").split("\r").join("");
             var lst = content.split(/((?:Table|Rule)*\s(?:[TR][0-9](?:[.0-9]*[0-9])*))/);
             this.targetMatchCount = this.targetMatchCount + ((lst.length - 1) / 2);
             for (var i=0,ilen=lst.length;i<ilen;i++) {
@@ -1129,6 +1128,13 @@ Walker.prototype.processInputTree = function(node) {
                 this.getTarget().appendChild(newnode);
             }
        } else {
+            if (content.match(/^https?:\/\/[^\s]+$/)) {
+                console.log(`Link! ${content}`);
+                // Insert a zero-width space before certain characters
+                var m = content.match(/(https?:\/\/)(.*)/);
+                str = m[2].replace(/([-&?_\/])/g, "​$1");
+                content = `${m[1]}${str}`;
+            }
             newnode = this.newdoc.createTextNode(content);
             this.getTarget().appendChild(newnode);
         }
