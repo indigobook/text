@@ -63,7 +63,7 @@ for (var fileInfo of filenames) {
         var currentTarget = firstdoc.createElement("div");
         currentTarget.setAttribute("id", currentPageType);
         currentTarget.setAttribute("page", currentPageType);
-        currentTarget.setAttribute("class", "page-break");
+        // currentTarget.setAttribute("class", "page-break");
         firstbody.appendChild(currentTarget);
     }
     for(var i=0; i<body.childNodes.length; i++) {
