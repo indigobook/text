@@ -301,6 +301,7 @@ var template = `
     
 	@media print { 
 		div.cover { position: absolute; height: 11in; margin-left: 0; margin-top: 0; width: 8in; }
+        hr { display: none; }
 	}
     
 
@@ -1207,7 +1208,7 @@ Walker.prototype.buildTOC = function(doc, node, toc) {
 }
 
 Walker.prototype.setTOC = function(doc) {
-    this.tocOffset = 1;
+    this.tocOffset = 8;
     this.tocEntryCount = 0;
     var toc = doc.createElement("ol");
     toc.setAttribute("id", "toc");
@@ -1219,6 +1220,14 @@ Walker.prototype.setTOC = function(doc) {
         if (tocNode.tagName === "span") {
             tocNode = tocNode.parentNode;
         }
+        var hruleNode = doc.createElement("hr");
+        tocNode.parentNode.insertBefore(hruleNode, tocNode);
+        
+        var tocTitleNode = doc.createElement("h2");
+        var tocTitleText = doc.createTextNode("Table of Contents");
+        tocTitleNode.appendChild(tocTitleText);
+        tocNode.parentNode.insertBefore(tocTitleNode, tocNode);
+        
         tocNode.parentNode.replaceChild(toc, tocNode);
     }
 }
