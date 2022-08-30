@@ -18,7 +18,7 @@ const buildPath = (fn) => {
 
 const runPrince = () => {
     require('child_process')
-        .execSync('~/prince/bin/prince docs/versions/indigobook-2.0-prerelease.html -o docs/versions/indigobook-2.0-prerelease.pdf');
+        .execSync('~/prince/bin/prince docs/versions/indigobook-3.0-beta.html -o docs/versions/indigobook-3.0-beta.pdf');
 }
     
 
@@ -89,6 +89,6 @@ output = [outputlst[0], "<body>", cover, outputlst[1]].join("\n");
 
 
 
-fs.writeFileSync(`${buildPath(`indigobook-2.0-prerelease.html`)}`, output);
+fs.writeFileSync(`${buildPath(`indigobook-3.0-beta.html`)}`, output);
 runPrince();
-console.log("  Generated file is at ./docs/indigobook-2.0-prerelease.html");
+console.log("  Generated file is at ./docs/indigobook-3.0-beta.html");
