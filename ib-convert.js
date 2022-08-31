@@ -336,7 +336,7 @@ function Walker (inputFile) {
     this.listType = "ul";
     this.didTab = false;
     this.insideInkling = false;
-    this.listLevel = null;
+    this.listLevel = 0;
     this.listID = null;
     this.inTitle = false;
     this.inHeading = false;
@@ -752,7 +752,7 @@ Walker.prototype.raiseNestingLevel = function(newListLevel) {
             this.dropTarget();
             // Drop OL|UL
             this.dropTarget();
-            newListLevel++;
+            this.listLevel--;
         }
     }
     return ret;
@@ -991,6 +991,9 @@ Walker.prototype.fixNodeAndAppend = function(node) {
             }
             this.appendOrdinaryNode(node, ret);
         } else if (["h2", "h3", "h4", "h5"].indexOf(m[1]) > -1) {
+            if (this.listLevel > 0) {
+                this.raiseNestingLevel(0);
+            }
             ret = this.newdoc.createElement(tn);
             if (node.textContent === "Skip Links") {
                 ret.setAttribute("class", "link-note");
