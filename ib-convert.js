@@ -122,6 +122,11 @@ var template = `
               font-family: 'Libre Baskerville', Georgia, serif;
               font-style: italic;
           }
+          @bottom-right {
+              content: 'indigobook-2.0-rev2023-1';
+              font-family: Arial, Calibri, Helvetica;
+              font-size: 9pt;
+          }
       } 
       @page contents:right {
           @top-right {
@@ -133,6 +138,11 @@ var template = `
               content: counter(page);
               font-family: 'Libre Baskerville', Georgia, serif;
               font-style: italic;
+          }
+          @bottom-left {
+              content: 'indigobook-2.0-rev2023-1';
+              font-family: Arial, Calibri, Helvetica;
+              font-size: 9pt;
           }
       }
       #frontmatter { counter-reset: page 0; page: frontmatter }

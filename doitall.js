@@ -90,5 +90,6 @@ output = [outputlst[0], "<body>", cover, outputlst[1]].join("\n");
 
 
 fs.writeFileSync(`${buildPath(`indigobook-3.0-beta.html`)}`, output);
-runPrince();
 console.log("  Generated file is at ./docs/indigobook-3.0-beta.html");
+runPrince();
+console.log("  Generated file is at ./docs/indigobook-3.0-beta.pdf");
