@@ -302,15 +302,16 @@ var template = `
     div.offscreen h2 { prince-bookmark-level: none }
 	div.cover { background-color: #442327 ; padding: 50px; vertical-align: middle ;   }
 	div.cover h1 { text-align: center ; color: #dfbb92 ; font-variant: small-caps ; font-size: 21pt; line-height: 32pt; }
-	div.cover h1 .display { font-size: 58pt; font-variant: small-caps ;   }
-	div.cover h1 .small-display { font-size: 40pt; }
+	div.cover h1 .display { font-size: 54pt; font-variant: small-caps ;   }
+	div.cover h1 .small-display { font-size: 36pt; }
+	div.cover h1 .smaller-display { font-size: 18pt; }
 	div.cover p.subtitle { text-align: center ; color: #dfbb92; font-size: 18pt ; padding-top: 20px ; padding-bottom: 20px;  }
 	div.cover p.subwarn { text-align: center ; color: #dfbb92; font-size: 12pt; text-transform: uppercase ;  }
 
     h1, p.subtitle, p.subwarn { font-family: Alice, Georgia, serif ; }
     
 	@media print { 
-		div.cover { position: absolute; height: 11in; margin-left: 0; margin-top: 0; width: 8in; }
+		div.cover { position: absolute; height: 11in; margin-left: 0; margin-top: 0; width: 7.5in; }
         hr { display: none; }
 	}
     

@@ -6,6 +6,8 @@ const xpath = require("xpath");
 const pretty = require('pretty');
 var Walker = require("./ib-convert");
 
+const basename = 'indigobook-2.0-rev2023-1';
+
 const buildPath = (fn) => {
     var stub = path.join(".", "docs", "versions");
     fs.mkdirSync(stub, {recursive: true});
@@ -16,12 +18,13 @@ const buildPath = (fn) => {
     }
 }
 
+const basepath = buildPath(`${basename}`)
+
 const runPrince = () => {
     require('child_process')
-        .execSync('~/prince/bin/prince docs/versions/indigobook-3.0-beta.html -o docs/versions/indigobook-3.0-beta.pdf');
+        .execSync(`~/prince/bin/prince ${basepath}.html -o ${basepath}.pdf`);
 }
     
-
 var filenames = [
     { filename: "Indigo Book 2d ed Final Front Matter.html", pagetype: "frontmatter" },
     { filename: "Section A Final Indigo Book 2d ed.html", pagetype: "contents" },
@@ -88,8 +91,7 @@ var outputlst = output.split("<body>");
 output = [outputlst[0], "<body>", cover, outputlst[1]].join("\n");
 
 
-
-fs.writeFileSync(`${buildPath(`indigobook-3.0-beta.html`)}`, output);
-console.log("  Generated file is at ./docs/indigobook-3.0-beta.html");
+fs.writeFileSync(`${basepath}.html`, output);
+console.log(`  Generated file is at ./docs/${basename}.html`);
 runPrince();
-console.log("  Generated file is at ./docs/indigobook-3.0-beta.pdf");
+console.log(`  Generated file is at ./docs/${basename}.pdf`);
