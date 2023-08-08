@@ -834,11 +834,11 @@ Walker.prototype.appendInklingNode = function(inputNode) {
     var inkling = this.newdoc.createElement("p");
     inkling.setAttribute("class", "inkling");
     this.addTarget(inkling);
-    
-        for(var i=0; i<inputNode.childNodes.length; i++) {
-            var child = inputNode.childNodes[i];
-            this.processInputTree(child);
-        }
+
+    for(var i=0; i<inputNode.childNodes.length; i++) {
+        var child = inputNode.childNodes[i];
+        this.processInputTree(child);
+    }
 
     var nextNode = inputNode.nextSibling;
     while (this.getNodeType(nextNode) === "text") {
@@ -1142,7 +1142,7 @@ Walker.prototype.processInputTree = function(node) {
                 }
                 this.getTarget().appendChild(newnode);
             }
-       } else {
+        } else {
             if (content.match(/^https?:\/\/[^\s]+$/)) {
                 // Insert a zero-width space before certain characters
                 var m = content.match(/(https?:\/\/)(.*)/);
