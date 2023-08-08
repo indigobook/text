@@ -481,13 +481,13 @@ Walker.prototype.run = function(returnDOM) {
     // as per current state of play.
     //
     // Cleanup
-    var tagList = ["p", "b", "i", "blockquote", "h1", "h2", "h3", "h4", "h5", "a", "u"];
+    var tagList = ["p", "b", "i", "em", "blockquote", "h1", "h2", "h3", "h4", "h5", "a", "u"];
     for (var tagName of tagList) {
         var elems = this.newdoc.getElementsByTagName(tagName);
         for (var i=elems.length-1; i>-1; i--) {
             var elem = elems[i];
-            var content = elem.textContent.trim();
-            if (!content || content === "&nbsp;") {
+            var content = elem.textContent;
+            if (!content || content === "&nbsp;" || (!content.trim() && content !== " ")) {
                 elem.parentNode.removeChild(elem);
             }
         }
@@ -831,6 +831,11 @@ Walker.prototype.appendInklingNode = function(inputNode) {
         process.exit();
     }
     this.dropTarget();
+    this.simpleIndent = this.getIndent(inputNode) && inputNode.getAttribute('class') !== 'Example';
+    if (this.simpleIndent) {
+        var blockquote = this.newdoc.createElement("blockquote");
+        this.addTarget(blockquote);
+    }
     var inkling = this.newdoc.createElement("p");
     inkling.setAttribute("class", "inkling");
     this.addTarget(inkling);
@@ -840,10 +845,15 @@ Walker.prototype.appendInklingNode = function(inputNode) {
         this.processInputTree(child);
     }
 
+    if (this.simpleIndent) {
+       this.dropTarget();
+    }
+
     var nextNode = inputNode.nextSibling;
     while (this.getNodeType(nextNode) === "text") {
         nextNode = nextNode.nextSibling;
     }
+    
     if (!nextNode || !nextNode.getAttribute("class") || nextNode.getAttribute("class") !== "Inkling") {
         // Close node AND box if we hit a non-inkling at the same nesting level
         this.dropTarget();
@@ -873,7 +883,7 @@ Walker.prototype.getNextNonEmptyElementSibling = function(node) {
 Walker.prototype.fixNodeAndAppend = function(node) {
     var ret = null;
     var tn = node.tagName;
-    var m = tn.match(/(table|thead|tbody|span|h[0-9]|sup|tr|td|ul|ol|li|br|p|i|b|a|u)/);
+    var m = tn.match(/(table|thead|tbody|span|h[0-9]|sup|tr|td|ul|ol|li|br|em|p|i|b|a|u)/);
     if (m) {
         if (m[1] === "p") {
             ret = this.newdoc.createElement("p");
