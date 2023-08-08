@@ -91,6 +91,11 @@ ${output}`;
 var outputlst = output.split("<body>");
 output = [outputlst[0], "<body>", cover, outputlst[1]].join("\n");
 
+// Final cleanup: Word will break up italic runs differently across
+// different runs. This attempts (but just attempts) to yield stable
+// output. Cosmetically there is no change to the printed form.
+output = output.replace(/\<\/\i>\<i\>/g, '');
+
 
 fs.writeFileSync(`${basepath}.html`, output);
 console.log(`  Generated file is at ./docs/${basename}.html`);
