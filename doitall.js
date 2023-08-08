@@ -91,7 +91,14 @@ var outputlst = output.split("<body>");
 output = [outputlst[0], "<body>", cover, outputlst[1]].join("\n");
 
 
+<<<<<<< HEAD
 fs.writeFileSync(`${basepath}.html`, output);
 console.log(`  Generated file is at ./docs/${basename}.html`);
 runPrince();
 console.log(`  Generated file is at ./docs/${basename}.pdf`);
+=======
+
+fs.writeFileSync(`${buildPath(`indigobook-3.0-beta.html`)}`, output);
+runPrince();
+console.log("  Generated file is at ./docs/indigobook-3.0-beta.html");
+>>>>>>> parent of 0625c38... Initial checkin for 2.0-rev2023-1
