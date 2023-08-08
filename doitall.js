@@ -7,6 +7,7 @@ const pretty = require('pretty');
 var Walker = require("./ib-convert");
 
 const basename = 'indigobook-2.0-rev2023-1';
+const coverbasename = basename.replace('indigobook', 'Cover');
 
 const buildPath = (fn) => {
     var stub = path.join(".", "docs", "versions");
@@ -18,7 +19,7 @@ const buildPath = (fn) => {
     }
 }
 
-const basepath = buildPath(`${basename}`)
+const basepath = buildPath(basename)
 
 const runPrince = () => {
     require('child_process')
@@ -81,7 +82,7 @@ walker.setTOC(firstdoc);
 walker.setDate(firstdoc);
 walker.setHash(firstdoc);
 
-var cover = fs.readFileSync(path.join(htmlSourcePath(), "..", "Cover-1.html")).toString();
+var cover = fs.readFileSync(path.join(htmlSourcePath(), "..", `${coverbasename}.html`)).toString();
 
 var output = pretty((new serializer()).serializeToString(firstdoc));
 output = walker.fixEntities(output);
@@ -91,14 +92,7 @@ var outputlst = output.split("<body>");
 output = [outputlst[0], "<body>", cover, outputlst[1]].join("\n");
 
 
-<<<<<<< HEAD
 fs.writeFileSync(`${basepath}.html`, output);
 console.log(`  Generated file is at ./docs/${basename}.html`);
 runPrince();
 console.log(`  Generated file is at ./docs/${basename}.pdf`);
-=======
-
-fs.writeFileSync(`${buildPath(`indigobook-3.0-beta.html`)}`, output);
-runPrince();
-console.log("  Generated file is at ./docs/indigobook-3.0-beta.html");
->>>>>>> parent of 0625c38... Initial checkin for 2.0-rev2023-1
