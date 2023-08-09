@@ -221,7 +221,7 @@ var template = `
         margin-bottom:auto;
         text-align:center;
         line-height:32.0pt;
-        background:#442327;
+        /* background:#442327; */
         vertical-align:middle;
       }
       p.title-block.first {
