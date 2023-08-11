@@ -487,7 +487,7 @@ Walker.prototype.run = function(returnDOM) {
         for (var i=elems.length-1; i>-1; i--) {
             var elem = elems[i];
             var content = elem.textContent;
-            if (!content || content === "&nbsp;" || (!content.trim() && content !== " ")) {
+            if (!content || content === "&nbsp;" || (!content.trim() && (content !== " " || tagName === "h2"))) {
                 elem.parentNode.removeChild(elem);
             }
         }
