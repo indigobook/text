@@ -1,0 +1,25 @@
+{
+    "type": "legal_case",
+    "abstract": "The Court had to determine a preliminary issue as to whether it had jurisdiction to hear a dispute arising from a complex loan arrangement. The dispute arose from an inter-creditor agreement that was expressly referred to by the indenture and contained an English law jurisdiction clause that had a distinct effect of its own. The Court found that the English Court had jurisdiction to hear a dispute arising from a complex loan arrangement, notwithstanding that the indenture governing the terms of the debt gave jurisdiction to the courts of New York.",
+    "authority": "ewhc.ch",
+    "issued": {
+      "date-parts": [
+        [
+          2018,
+          2,
+          19
+        ]
+      ]
+    },
+    "page": "305",
+    "language": "gb",
+    "note": "",
+    "multi": {
+      "main": {},
+      "_keys": {}
+    },
+    "call-number": "UK043",
+    "jurisdiction": "gb:england.and.wales",
+    "collection-number": "2018",
+    "id": "GRF2FLWN"
+}
